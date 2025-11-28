@@ -1,0 +1,87 @@
+
+///////////////////////////////////////////////SIGN UP PAGE///////////////////////////////////////////////////////////////
+
+<script>
+document.querySelector('#wf-form-signup').addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const submitButton = document.querySelector('#send-otp'); // Replace with your actual button ID
+  if (submitButton) submitButton.disabled = true; // Disable the button
+
+  const formData = new FormData(event.target);
+  formData.delete('UserPassword');
+
+  const emailField = document.querySelector('#Email-3');
+  if (!emailField) {
+    console.error("Email field with ID 'Email-3' not found.");
+    if (submitButton) submitButton.disabled = false;
+    return;
+  }
+
+  const email = emailField.value.trim();
+  const emailRegex = /^[a-z0-9](\.?[a-z0-9_-])*@[a-z0-9.-]+\.[a-z]{2,63}$/;
+
+  const validTLDs = [
+    "com", "org", "net", "edu", "gov", "io", "ai", "info", "biz", "online",
+    "tech", "dev", "co", "us", "uk", "ca", "au", "in"
+  ];
+
+  if (!emailRegex.test(email)) {
+    displayError('Please enter a valid email address.');
+    if (submitButton) submitButton.disabled = false;
+    return;
+  }
+
+  const emailDomain = email.split('@')[1];
+  const tld = emailDomain.split('.').pop().toLowerCase();
+
+  if (!validTLDs.includes(tld)) {
+    displayError('Invalid email TLD. Please check your email address.');
+    if (submitButton) submitButton.disabled = false;
+    return;
+  }
+
+  console.log("Valid email format and TLD:", email);
+
+  formData.set('email', email);
+  const data = Object.fromEntries(formData.entries());
+
+  try {
+    const response = await fetch('https://user-module-biaw.onrender.com/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Success:', result);
+
+      const memberType = result.memberType;
+      localStorage.setItem('memberType', memberType);
+      const verificationUrl = `https://biaw.com/verification`;
+      window.location.href = verificationUrl;
+    } else {
+      const errorData = await response.json();
+      console.error('Server responded with an error:', response.status, errorData);
+      displayError(errorData.error || 'An unknown error occurred.');
+      if (submitButton) submitButton.disabled = false; // Re-enable on error
+    }
+  } catch (error) {
+    console.error('Error during fetch:', error);
+    displayError('A network error occurred. Please try again.');
+    if (submitButton) submitButton.disabled = false; // Re-enable on error
+  }
+});
+
+// Function to display error messages
+function displayError(message) {
+  const errorText = document.querySelector('#error-message');
+  if (errorText) {
+    errorText.textContent = message;
+    errorText.style.display = 'block';
+  } else {
+    console.warn("Error message element with ID 'error-message' not found.");
+  }
+}
+</script>

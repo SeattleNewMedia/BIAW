@@ -1,0 +1,268 @@
+////////////////////////////////////////////////////ACCOUNT VERIFICATION//////////////////////////////////////////////////////////
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // Elements
+  const emailInput = document.getElementById("signUpMailID");
+  const otpInput = document.getElementById("passwordInput"); // OTP field
+  const newPasswordInput = document.getElementById("newPassword");
+  const confirmPasswordInput = document.getElementById("confirmPassword");
+  const verifyButton = document.getElementById("codeVerifyBtn"); // OTP verification button
+  const passwordButton = document.getElementById("verificationButton"); // Password submission button
+  const openEye = document.getElementById("openEye"); // Eye icon for password visibility
+  const codeVerifyBlock = document.getElementById("codeVerifyBlock");
+  const newPasswordBlock = document.getElementById("newPasswordBlock");
+  const successMessage = document.querySelector(".SuccessMessage");
+  const errorMessage = document.querySelector(".ErrorMessage");
+  const passwordErrorBlock = document.querySelector(".passwordErrorBlock"); // For displaying password errors
+
+  let newPasswordValue = ''; // Store the actual password
+
+  // Helper function to set messages
+  const setMessage = (element, message, isSuccess = true) => {
+    if (!element) {
+      console.error(`Element not found to set message: ${message}`);
+      return;
+    }
+    element.textContent = message;
+    element.classList.remove("hide");
+    if (isSuccess) {
+      element.classList.add("success");
+      element.classList.remove("error");
+    } else {
+      element.classList.add("error");
+      element.classList.remove("success");
+    }
+  };
+
+  // Helper function to get query parameters
+  const getQueryParam = (param) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+  };
+
+  // Function to validate password criteria
+  function validatePassword(password) {
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const hasMinLength = password.length >= 8;
+
+    return hasLower && hasUpper && hasNumber && hasSpecialChar && hasMinLength;
+  }
+
+  // Function to mask password input
+  function maskPassword() {
+    const maskedValue = '*'.repeat(newPasswordValue.length);
+    newPasswordInput.value = maskedValue;
+  }
+
+  // Event listener for newPasswordInput
+  newPasswordInput.addEventListener("input", (event) => {
+    const inputChar = event.data;
+    const maskedLength = newPasswordInput.value.length;
+
+    if (inputChar === null && maskedLength < newPasswordValue.length) {
+      // Handle backspace or delete
+      newPasswordValue = newPasswordValue.slice(0, -1);
+    } else if (inputChar) {
+      newPasswordValue += inputChar;
+    }
+
+    // Mask the displayed value but keep the actual password stored
+    maskPassword();
+
+    // Validate and add appropriate classes
+    if (validatePassword(newPasswordValue)) {
+      newPasswordInput.classList.remove("invalid");
+      newPasswordInput.classList.add("valid");
+    } else {
+      newPasswordInput.classList.remove("valid");
+      newPasswordInput.classList.add("invalid");
+    }
+  });
+
+  // Confirm password validation
+  confirmPasswordInput.addEventListener("input", () => {
+    if (
+      confirmPasswordInput.value === newPasswordValue &&
+      validatePassword(newPasswordValue)
+    ) {
+      confirmPasswordInput.classList.remove("invalid");
+      confirmPasswordInput.classList.add("valid");
+      passwordButton.disabled = false;
+    } else {
+      confirmPasswordInput.classList.remove("valid");
+      confirmPasswordInput.classList.add("invalid");
+      passwordButton.disabled = true;
+    }
+  });
+
+  // Eye button functionality to show password
+  openEye.addEventListener("click", () => {
+    newPasswordInput.value = newPasswordValue; // Show the real password
+    openEye.style.display = "none"; // Hide the eye button
+
+    // Temporarily display the real password and revert to masked after 2 seconds
+    setTimeout(() => {
+      maskPassword();
+      openEye.style.display = "block"; // Show the eye button back
+    }, 2000);
+  });
+
+  // OTP Verification
+  verifyButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+
+    const email = emailInput.value.trim();
+    const otp = otpInput.value.trim();
+
+    if (!email || !otp) {
+      alert("Please enter both Email and OTP.");
+      return;
+    }
+
+    try {
+      const response = await fetch("https://user-module-biaw.onrender.com/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        sessionStorage.setItem("verifiedEmail", email);
+        codeVerifyBlock.classList.add("hide");
+        newPasswordBlock.classList.remove("hide");
+        setMessage(successMessage, "OTP verified successfully!");
+
+        let memberType = localStorage.getItem("memberType");
+        if (!memberType) {
+          memberType = result.memberType || getQueryParam("memberType"); // Fallback to query param
+          if (memberType) {
+            localStorage.setItem("memberType", memberType);
+          }
+        }
+      } else {
+        console.error("Server error:", response.status, result);
+        if (result.error === "Invalid email or OTP.") {
+          const errorText = document.querySelector('#error-messages');
+          if (errorText) {
+            errorText.textContent = result.error; // Update the error message
+            errorText.style.display = 'block'; // Ensure it's visible
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      setMessage(errorMessage, "An error occurred. Please try again.", false);
+    }
+  });
+
+  // Password Submission
+  passwordButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+
+    const password = newPasswordValue.trim(); // Use the stored password
+    const confirmPassword = confirmPasswordInput.value.trim();
+    const email = sessionStorage.getItem("verifiedEmail");
+    const memberType = localStorage.getItem("memberType");
+
+    // Validation checks
+    if (!password || !confirmPassword) {
+      setMessage(passwordErrorBlock, "Please enter both Password and Confirm Password.", false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+    setMessage(errorMessage, "Passwords do not match.", false);
+    confirmPasswordInput.classList.remove("valid");
+    confirmPasswordInput.classList.add("invalid"); // Mark as invalid
+    return;
+   }
+   
+    if (!validatePassword(password)) {
+      setMessage(
+        errorMessage,
+        "Use a combination of uppercase, lowercase, numbers, and special characters.",
+        false
+      );
+      return;
+    }
+
+    try {
+      const response = await fetch("https://user-module-biaw.onrender.com/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, confirmPassword, email, memberType }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setMessage(successMessage, "Password set successfully!");
+        setTimeout(() => {
+          window.location.href = "https://biaw.com/verification-successful";
+        }, 1000);
+      } else {
+        setMessage(errorMessage, result.error || "Failed to set password. Please try again.", false);
+      }
+    } catch (error) {
+      console.error("Error setting password:", error);
+      setMessage(errorMessage, "An error occurred. Please try again.", false);
+    }
+  });
+});
+</script>
+
+
+
+///////////////////////////////////////////////////////CASCADING STYLE SHEET//////////////////////////////////////////////////////
+
+
+<style>
+.hide {
+  display: none;
+}
+.show {
+  display: block;
+}
+
+</style>
+
+<script src="https://static.memberstack.io/memberstack.js"></script>
+<style>
+/* Add these styles to your CSS file */
+.hide {
+    opacity: 0;           /* Start as invisible */
+    transition: opacity 0.5s ease; /* Transition effect for opacity */
+    height: 0;            /* Prevent height from taking space */
+    overflow: hidden;     /* Hide overflow to prevent content from showing */
+}
+
+.show {
+    opacity: 1;           /* Make fully visible */
+    transition: opacity 0.5s ease; /* Transition effect for opacity */
+    height: auto;         /* Set to auto to allow space */
+}
+input.invalid {
+    border: 2px solid red;
+}
+
+input.valid {
+    border: 2px solid green;
+}
+#newPassword::after {
+    content: '👁️'; /* Eye icon */
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 16px;
+    color: #888;
+}
+</style>
