@@ -1,0 +1,369 @@
+<!-- 💙 MEMBERSCRIPT #5 v0.1 💙 FILL TEXT BASED ON SIMPLE ITEM IN JSON -->
+<script>
+document.addEventListener("DOMContentLoaded", async function () {
+  // Check if MemberStack is loaded
+  if (!window.MemberStack) {
+    console.error("MemberStack script is not initialized. Please check your setup.");
+    return;
+  }
+
+  try {
+    // Fetch current member data
+    const member = await MemberStack.onReady;
+    const memberData = member?.member;
+    console.log("Fetched Member Data:", memberData);
+
+    if (memberData) {
+      // Display Member Data in Webflow
+      document.querySelectorAll("[data-ms-content]").forEach((element) => {
+        const key = element.getAttribute("data-ms-content");
+        element.textContent = memberData[key] || "Data not available";
+      });
+    } else {
+      console.error("No member is currently logged in.");
+    }
+  } catch (error) {
+    console.error("Error fetching MemberStack data:", error);
+  }
+});
+
+
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Helper function to check if an element is visible
+  const isElementVisible = (element) => {
+    return element &&
+      window.getComputedStyle(element).display !== 'none' &&
+      !element.classList.contains('w-condition-invisible');
+  };
+
+  // Select all elements with the 'cancel-form' class
+  const cancelForms = document.querySelectorAll('.cancel-form');
+
+  cancelForms.forEach((cancelForm) => {
+    // Find the nearest parent containing the cancel form
+    const parent = cancelForm.closest('.purchase-details_button-wrapper');
+    if (!parent) return;
+
+    // Query the cancelled, refunded, and cancelled_without divs
+    const cancelledDiv = parent.querySelector('.cancelled');
+    const refundedDiv = parent.querySelector('.refunded');
+    const cancelledWithoutDiv = parent.querySelector('.cancelled_without');
+
+    // Skip if none of the relevant elements are found
+    if (!cancelledDiv && !refundedDiv && !cancelledWithoutDiv) {
+      console.warn('Relevant elements not found for:', cancelForm);
+      return;
+    }
+
+    // Check visibility of the elements
+    const isCancelledVisible = isElementVisible(cancelledDiv);
+    const isRefundedVisible = isElementVisible(refundedDiv);
+    const isCancelledWithoutVisible = isElementVisible(cancelledWithoutDiv);
+
+    // Update the cancel form visibility based on the conditions
+    if (isCancelledVisible || isRefundedVisible || isCancelledWithoutVisible) {
+      // Hide the cancel form if any of the conditions are met
+      cancelForm.classList.remove('block');
+      cancelForm.classList.add('hide');
+    } else {
+      // Show the cancel form otherwise
+      cancelForm.classList.remove('hide');
+      cancelForm.classList.add('block');
+    }
+
+    // Debugging logs for visibility status
+    const debug = false; // Set to true for debugging
+    if (debug) {
+      console.log('Cancel Form:', cancelForm);
+      console.log('Cancelled Visible:', isCancelledVisible);
+      console.log('Refunded Visible:', isRefundedVisible);
+      console.log('Cancelled Without Visible:', isCancelledWithoutVisible);
+    }
+  });
+});
+
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Select all elements with the 'cancel-form' class
+  const cancelForms = document.querySelectorAll('.cancel-form');
+
+  cancelForms.forEach((cancelForm) => {
+    const parent = cancelForm.closest('.purchase-details_button-wrapper');
+    if (!parent) return;
+
+    const bookingTypeElement = parent.querySelector('.booking-type');
+    if (!bookingTypeElement) return;
+
+    const bookingTypeText = bookingTypeElement.textContent.trim();
+    if (bookingTypeText === 'Admin booked') {
+      cancelForm.className = 'cancel-form w-form hide'; // Set the exact class as requested
+    }
+  });
+});
+
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const verifyButton = document.getElementById("verify-id");
+  const contactPinField = document.getElementById("Contact-Pin");
+  const form = document.getElementById("wf-form-Membership-verification");
+
+  verifyButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+
+    // Retrieve and parse the _ms-mem object from localStorage
+    const msMem = localStorage.getItem("_ms-mem");
+    let email;
+
+    try {
+      const msMemParsed = JSON.parse(msMem);
+      email = msMemParsed?.auth?.email; // Safely access nested email property
+    } catch (e) {
+      console.error("Error parsing _ms-mem from localStorage:", e);
+    }
+
+    if (!email) {
+      alert("No verified email found in local storage. Please log in again.");
+      return;
+    }
+
+    const companyId = contactPinField ? contactPinField.value.trim() : "";
+    if (!companyId) {
+      alert("Please enter your Company ID.");
+      return;
+    }
+
+    try {
+      verifyButton.disabled = true;
+      verifyButton.textContent = "Verifying...";
+
+      const response = await fetch("https://member-api-9nkw.onrender.com/update-company-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, companyId }),
+      });
+
+      const responseText = await response.text();
+      try {
+        const result = JSON.parse(responseText); // Attempt to parse JSON
+        if (response.ok) {
+          window.location.href = "https://biaw-stage-api.webflow.io/member-confirmation";
+        } else {
+          alert(result.error || "Verification failed. Please try again.");
+        }
+      } catch (e) {
+        console.error("Server returned a non-JSON response:", responseText);
+        alert("An unexpected error occurred. Please contact support.");
+      }
+    } catch (error) {
+      console.error("Error verifying Company ID:", error);
+      alert("An unexpected error occurred. Please try again.");
+    } finally {
+      verifyButton.disabled = false;
+      verifyButton.textContent = "Verify";
+    }
+  });
+});
+</script>
+
+<script>/*
+  document.addEventListener("DOMContentLoaded", function () {
+    const checkbox = document.getElementById("Autopay-Disable");
+    const button = document.getElementById("builderautopaybtn");
+
+    if (checkbox && button) {
+      button.addEventListener("click", function () {
+        const isChecked = checkbox.checked;
+
+        // Get the member data from localStorage
+        const memDataRaw = localStorage.getItem('_ms-mem');
+        let memberId = null;
+
+        try {
+          const memData = JSON.parse(memDataRaw);
+          memberId = memData?.id || null;
+        } catch (err) {
+          console.error("Error parsing _ms-mem from localStorage:", err);
+        }
+
+        const payload = {
+          autopayDisabled: isChecked,
+          memberId: memberId,
+        };
+
+        // Log the data being sent
+        console.log("Sending data to server:", payload);
+
+        fetch("https://biaw-server-6c9x.onrender.com/api/autopay", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log("Server response:", data);
+        })
+        .catch(error => {
+          console.error("Error sending checkbox state:", error);
+        });
+      });
+    } else {
+      console.error("Checkbox or button not found.");
+    }
+  });
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const checkbox = document.querySelector('[data-autopay-toggle="true"]');
+    const button = document.querySelector('[data-autopay-submit="true"]');
+
+    console.log("Autopay toggle script loaded.");
+    console.log("Checkbox element:", checkbox);
+    console.log("Button element:", button);
+
+    if (!checkbox || !button) {
+      console.error("❌ Checkbox or button with custom attributes not found.");
+      return;
+    }
+
+    button.addEventListener("click", async function () {
+      const isChecked = checkbox.checked;
+
+      // Get member data from localStorage
+      const memDataRaw = localStorage.getItem('_ms-mem');
+      let memberId = null;
+
+      try {
+        const memData = JSON.parse(memDataRaw);
+        memberId = memData?.id || null;
+      } catch (err) {
+        console.error("❌ Error parsing _ms-mem from localStorage:", err);
+      }
+
+      if (!memberId) {
+        console.error("❌ No member ID found. Cannot proceed.");
+        alert("Member information is missing. Please refresh or log in again.");
+        return;
+      }
+
+      const payload = {
+        autopayDisabled: isChecked,
+        memberId: memberId,
+      };
+
+      console.log("📤 Sending payload:", payload);
+
+      try {
+        const response = await fetch("https://biaw-server-6c9x.onrender.com/api/autopay", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          console.log("✅ Server response:", result);
+          alert("Autopay setting updated successfully.");
+        } else {
+          console.error("❌ Server error:", result);
+          alert("Failed to update setting. Please try again.");
+        }
+      } catch (error) {
+        console.error("❌ Network error:", error);
+        alert("Network error. Please check your connection.");
+      }
+    });
+  });
+</script>
+
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+  const checkbox = document.getElementById("checkbox-builder");
+  const button = document.getElementById("autopaybtn");
+
+  if (checkbox && button) {
+    button.addEventListener("click", function () {
+      const isChecked = checkbox.checked;
+
+      // Get the member data from localStorage
+      const memDataRaw = localStorage.getItem('_ms-mem');
+      let memberId = null;
+
+      try {
+        const memData = JSON.parse(memDataRaw);
+        memberId = memData?.id || null;
+        
+        if (!memberId) {
+          console.error("No member ID found in localStorage");
+          alert("Error: Member ID not found. Please log in again.");
+          return;
+        }
+      } catch (err) {
+        console.error("Error parsing _ms-mem from localStorage:", err);
+        alert("Error: Could not retrieve member information. Please log in again.");
+        return;
+      }
+
+      const payload = {
+        autopayDisabled: isChecked,
+        memberId: memberId,
+      };
+
+      // Disable button while processing
+      button.disabled = true;
+      button.textContent = "Updating...";
+
+      // Log the data being sent
+      console.log("Sending data to server:", payload);
+
+      fetch("https://biaw-server-6c9x.onrender.com/api/product-autopay/update-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log("Server response:", data);
+        // Show success message
+        alert(isChecked ? "Autopay has been disabled" : "Autopay has been enabled");
+      })
+      .catch(error => {
+        console.error("Error sending checkbox state:", error);
+        alert("Error updating autopay status. Please try again.");
+        // Revert checkbox state on error
+        checkbox.checked = !isChecked;
+      })
+      .finally(() => {
+        // Re-enable button
+        button.disabled = false;
+        button.textContent = "Update";
+      });
+    });
+  } else {
+    console.error("Checkbox or button not found.");
+  }
+});
+</script>
+
+

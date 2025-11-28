@@ -1,0 +1,480 @@
+//////////////////////////siguppage//////////////////////////////////////////////////////////////////////////
+
+<script>
+document.querySelector('#wf-form-signup').addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const submitButton = document.querySelector('#send-otp'); // Replace with your actual button ID
+  if (submitButton) submitButton.disabled = true; // Disable the button
+
+  const formData = new FormData(event.target);
+  formData.delete('UserPassword');
+
+  const emailField = document.querySelector('#Email-3');
+  if (!emailField) {
+    console.error("Email field with ID 'Email-3' not found.");
+    if (submitButton) submitButton.disabled = false;
+    return;
+  }
+
+  const email = emailField.value.trim();
+  const emailRegex = /^[a-z0-9](\.?[a-z0-9_-])*@[a-z0-9.-]+\.[a-z]{2,63}$/;
+
+  const validTLDs = [
+    "com", "org", "net", "edu", "gov", "io", "ai", "info", "biz", "online",
+    "tech", "dev", "co", "us", "uk", "ca", "au", "in"
+  ];
+
+  if (!emailRegex.test(email)) {
+    displayError('Please enter a valid email address.');
+    if (submitButton) submitButton.disabled = false;
+    return;
+  }
+
+  const emailDomain = email.split('@')[1];
+  const tld = emailDomain.split('.').pop().toLowerCase();
+
+  if (!validTLDs.includes(tld)) {
+    displayError('Invalid email TLD. Please check your email address.');
+    if (submitButton) submitButton.disabled = false;
+    return;
+  }
+
+  console.log("Valid email format and TLD:", email);
+
+  formData.set('email', email);
+  const data = Object.fromEntries(formData.entries());
+	console.log('Payload being sent to server (req.body):', data);
+  try {
+    const response = await fetch('https://user-module-biaw.onrender.com/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Success:', result);
+
+      const memberType = result.memberType;
+      localStorage.setItem('memberType', memberType);
+      const verificationUrl = `https://biaw.com/verification`;
+      window.location.href = verificationUrl;
+    } else {
+      const errorData = await response.json();
+      console.error('Server responded with an error:', response.status, errorData);
+      displayError(errorData.error || 'An unknown error occurred.');
+      if (submitButton) submitButton.disabled = false; // Re-enable on error
+    }
+  } catch (error) {
+    console.error('Error during fetch:', error);
+    displayError('A network error occurred. Please try again.');
+    if (submitButton) submitButton.disabled = false; // Re-enable on error
+  }
+});
+
+// Function to display error messages
+function displayError(message) {
+  const errorText = document.querySelector('#error-message');
+  if (errorText) {
+    errorText.textContent = message;
+    errorText.style.display = 'block';
+  } else {
+    console.warn("Error message element with ID 'error-message' not found.");
+  }
+}
+</script>
+
+
+///////////////////////////////////////////////////////verificatio page /////////////////////////////////////////////////////////////
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // Elements
+  const emailInput = document.getElementById("signUpMailID");
+  const otpInput = document.getElementById("passwordInput"); // OTP field
+  const newPasswordInput = document.getElementById("newPassword");
+  const confirmPasswordInput = document.getElementById("confirmPassword");
+  const verifyButton = document.getElementById("codeVerifyBtn"); // OTP verification button
+  const passwordButton = document.getElementById("verificationButton"); // Password submission button
+  const openEye = document.getElementById("openEye"); // Eye icon for password visibility
+  const codeVerifyBlock = document.getElementById("codeVerifyBlock");
+  const newPasswordBlock = document.getElementById("newPasswordBlock");
+  const successMessage = document.querySelector(".SuccessMessage");
+  const errorMessage = document.querySelector(".ErrorMessage");
+  const passwordErrorBlock = document.querySelector(".passwordErrorBlock"); // For displaying password errors
+
+  let newPasswordValue = ''; // Store the actual password
+
+  // Helper function to set messages
+  const setMessage = (element, message, isSuccess = true) => {
+    if (!element) {
+      console.error(`Element not found to set message: ${message}`);
+      return;
+    }
+    element.textContent = message;
+    element.classList.remove("hide");
+    if (isSuccess) {
+      element.classList.add("success");
+      element.classList.remove("error");
+    } else {
+      element.classList.add("error");
+      element.classList.remove("success");
+    }
+  };
+
+  // Helper function to get query parameters
+  const getQueryParam = (param) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+  };
+
+  // Function to validate password criteria
+  function validatePassword(password) {
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const hasMinLength = password.length >= 8;
+
+    return hasLower && hasUpper && hasNumber && hasSpecialChar && hasMinLength;
+  }
+
+  // Function to mask password input
+  function maskPassword() {
+    const maskedValue = '*'.repeat(newPasswordValue.length);
+    newPasswordInput.value = maskedValue;
+  }
+
+  // Event listener for newPasswordInput
+  newPasswordInput.addEventListener("input", (event) => {
+    const inputChar = event.data;
+    const maskedLength = newPasswordInput.value.length;
+
+    if (inputChar === null && maskedLength < newPasswordValue.length) {
+      // Handle backspace or delete
+      newPasswordValue = newPasswordValue.slice(0, -1);
+    } else if (inputChar) {
+      newPasswordValue += inputChar;
+    }
+
+    // Mask the displayed value but keep the actual password stored
+    maskPassword();
+
+    // Validate and add appropriate classes
+    if (validatePassword(newPasswordValue)) {
+      newPasswordInput.classList.remove("invalid");
+      newPasswordInput.classList.add("valid");
+    } else {
+      newPasswordInput.classList.remove("valid");
+      newPasswordInput.classList.add("invalid");
+    }
+  });
+
+  // Confirm password validation
+  confirmPasswordInput.addEventListener("input", () => {
+    if (
+      confirmPasswordInput.value === newPasswordValue &&
+      validatePassword(newPasswordValue)
+    ) {
+      confirmPasswordInput.classList.remove("invalid");
+      confirmPasswordInput.classList.add("valid");
+      passwordButton.disabled = false;
+    } else {
+      confirmPasswordInput.classList.remove("valid");
+      confirmPasswordInput.classList.add("invalid");
+      passwordButton.disabled = true;
+    }
+  });
+
+  // Eye button functionality to show password
+  openEye.addEventListener("click", () => {
+    newPasswordInput.value = newPasswordValue; // Show the real password
+    openEye.style.display = "none"; // Hide the eye button
+
+    // Temporarily display the real password and revert to masked after 2 seconds
+    setTimeout(() => {
+      maskPassword();
+      openEye.style.display = "block"; // Show the eye button back
+    }, 2000);
+  });
+
+  // OTP Verification
+  verifyButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+
+    const email = emailInput.value.trim();
+    const otp = otpInput.value.trim();
+
+    if (!email || !otp) {
+      alert("Please enter both Email and OTP.");
+      return;
+    }
+
+    try {
+      const response = await fetch("https://user-module-biaw.onrender.com/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        sessionStorage.setItem("verifiedEmail", email);
+        codeVerifyBlock.classList.add("hide");
+        newPasswordBlock.classList.remove("hide");
+        setMessage(successMessage, "OTP verified successfully!");
+
+        let memberType = localStorage.getItem("memberType");
+        if (!memberType) {
+          memberType = result.memberType || getQueryParam("memberType"); // Fallback to query param
+          if (memberType) {
+            localStorage.setItem("memberType", memberType);
+          }
+        }
+      } else {
+        console.error("Server error:", response.status, result);
+        if (result.error === "Invalid email or OTP.") {
+          const errorText = document.querySelector('#error-messages');
+          if (errorText) {
+            errorText.textContent = result.error; // Update the error message
+            errorText.style.display = 'block'; // Ensure it's visible
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      setMessage(errorMessage, "An error occurred. Please try again.", false);
+    }
+  });
+
+  // Password Submission
+  passwordButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+
+    const password = newPasswordValue.trim(); // Use the stored password
+    const confirmPassword = confirmPasswordInput.value.trim();
+    const email = sessionStorage.getItem("verifiedEmail");
+    const memberType = localStorage.getItem("memberType");
+
+    // Validation checks
+    if (!password || !confirmPassword) {
+      setMessage(passwordErrorBlock, "Please enter both Password and Confirm Password.", false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+    setMessage(errorMessage, "Passwords do not match.", false);
+    confirmPasswordInput.classList.remove("valid");
+    confirmPasswordInput.classList.add("invalid"); // Mark as invalid
+    return;
+   }
+   
+    if (!validatePassword(password)) {
+      setMessage(
+        errorMessage,
+        "Use a combination of uppercase, lowercase, numbers, and special characters.",
+        false
+      );
+      return;
+    }
+
+    try {
+      const response = await fetch("https://user-module-biaw.onrender.com/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, confirmPassword, email, memberType }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setMessage(successMessage, "Password set successfully!");
+        setTimeout(() => {
+          window.location.href = "https://biaw.com/verification-successful";
+        }, 1000);
+      } else {
+        setMessage(errorMessage, result.error || "Failed to set password. Please try again.", false);
+      }
+    } catch (error) {
+      console.error("Error setting password:", error);
+      setMessage(errorMessage, "An error occurred. Please try again.", false);
+    }
+  });
+});
+</script>
+
+//////////////////////////////////////////////////member verification//////////////////////////////////////////////////////////
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const verifyButton = document.getElementById("verify-id");
+  const contactPinField = document.getElementById("Contact-Pin");
+  const form = document.getElementById("wf-form-Membership-verification");
+  verifyButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+
+    const msMem = localStorage.getItem("_ms-mem");
+    let email;
+
+    try {
+      const msMemParsed = JSON.parse(msMem);
+      email = msMemParsed?.auth?.email; 
+    } catch (e) {
+      console.error("Error parsing _ms-mem from localStorage:", e);
+    }
+
+    if (!email) {
+      console.log("No verified email found in local storage. Please log in again.");
+      return;
+    }
+
+    const companyId = contactPinField ? contactPinField.value.trim() : "";
+    if (!companyId) {
+      console.log("Please enter your Company ID.");
+      return;
+    }
+
+    try {
+      verifyButton.disabled = true;
+      verifyButton.textContent = "Verifying...";
+
+      const response = await fetch("https://user-module-biaw.onrender.com/update-company-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, companyId }),
+      });
+
+      const responseText = await response.text();
+      try {
+        const result = JSON.parse(responseText); 
+        if (response.ok) {
+          window.location.href = "https://biaw.com/member-confirmation";
+        } else {
+          alert(result.error || "Verification failed. Please try again.");
+        }
+      } catch (e) {
+        console.error("Server returned a non-JSON response:", responseText);
+      }
+    } catch (error) {
+      console.error("Error verifying Company ID:", error);
+    } finally {
+      verifyButton.disabled = false;
+      verifyButton.textContent = "Verify";
+    }
+  });
+});
+</script>
+
+
+////////////////////////////////////////////////////////cancel payment ///////////////////////////////////////////////////////
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const container = document.body; 
+  container.addEventListener("click", async (event) => {
+    if (event.target && event.target.id === "order-cancel_button") {
+      const button = event.target;
+      const airtableRecordId = button.getAttribute("data-airtable-record-id");
+      const paymentIntentId = button.getAttribute("data-payment-intent-id");
+      if (!airtableRecordId) {
+        alert("Record ID is missing!");
+        return;
+      }
+      try {
+        const body = paymentIntentId
+          ? { airtableRecordId, paymentIntentId }
+          : { airtableRecordId };
+        const response = await fetch("https://biaw-class-module.onrender.com/cancel-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        const result = await response.json();
+        if (response.ok) {
+          window.location.href = "https://biaw.com/order-canceled";
+        } else {
+          alert(`Error: ${result.message}`);
+        }
+      } catch (error) {
+        console.error("Error updating payment:", error.message);
+      }
+    }
+  });
+});
+</script>
+
+
+//////////////////////////////////////////////////roi registration////////////////////////////////////////////////////////////////
+
+<script>
+document.querySelector('#wf-form-Roii-registration').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+  try {
+    const response = await fetch('https://biaw-class-module.onrender.com/register-class', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data), 
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Success:', result);      
+      window.location.href = "https://biaw.com/thank-you";     
+    } else {
+      const errorData = await response.json();
+      console.error('Server responded with an error:', response.status, errorData);      
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    console.log('An unexpected error occurred. Please try again.');
+  }
+});
+</script>
+
+
+
+//////////////////////////////////////////////////////////////joint waitlist////////////////////////////////////////////////////////
+
+<script>
+  document.getElementById('join-waiting-list-btn').addEventListener('click', async function () {
+  const loginDetails = document.getElementById('login-details').value;
+  const classId = document.getElementById('Class-airtable-field-id').value;
+  const loginMember = document.getElementById('Login-Member').value;
+  const className = document.getElementById('join-class-name').innerText; // Use innerText for text blocks
+  const instructor = document.getElementById('join-instructor').innerText; 
+  const classur = document.getElementById('NotifyClassUrl').value;
+  const data = {
+    loginDetails,
+    classId,
+    loginMember,
+    className,
+    instructor,
+    classur,
+  };
+  try {
+    const response = await fetch('https://biaw-class-module.onrender.com/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (response.ok) {
+      console.log('Details sent successfully!');
+    } else {
+      const error = await response.json();
+      console.log('Error: ' + error.message);
+    }
+  } catch (err) {
+    console.log('An error occurred: ' + err.message);
+  }
+});
+</script>
