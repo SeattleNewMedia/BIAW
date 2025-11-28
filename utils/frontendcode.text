@@ -1,0 +1,179 @@
+////////////////////////////////////////////////////////////////FROM SUBMISSION//////////////////////////////////////////////////////
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("wf-form-Builder-Application");
+  const successMessage = document.querySelector(".w-form-done");
+  const errorMessage = document.querySelector(".w-form-fail");
+
+  // Hide both messages initially
+  if (successMessage) successMessage.style.display = "none";
+  if (errorMessage) errorMessage.style.display = "none";
+
+  if (form) {
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault(); // Stop default Webflow handling
+
+      let formData = new FormData(form);
+      let formEntries = {};
+
+      formData.forEach((value, key) => {
+        formEntries[key] = value;
+      });
+
+      // Get ms-mem data from localStorage
+      let msMem = localStorage.getItem("_ms-mem");
+      if (msMem) {
+        try {
+          let parsed = JSON.parse(msMem);
+          formEntries["msMemId"] = parsed.id || null;
+        } catch (error) {
+          console.error("Failed to parse _ms-mem:", error);
+        }
+      }
+
+      console.log("Submitting Data:", formEntries);
+
+      try {
+        const response = await fetch("https://biaw-server-hbwi.onrender.com/api/submit-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formEntries),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          console.log("Server Response:", result);
+
+          if (result.checkoutUrl) {
+            window.location.href = result.checkoutUrl;
+          } else {
+            if (successMessage) {
+              successMessage.style.display = "block";
+            }
+            if (errorMessage) {
+              errorMessage.style.display = "none";
+            }
+            form.reset();
+          }
+        } else {
+          if (errorMessage) {
+            errorMessage.style.display = "block";
+          }
+          if (successMessage) {
+            successMessage.style.display = "none";
+          }
+          console.error("Submission failed:", result);
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+        if (errorMessage) {
+          errorMessage.style.display = "block";
+        }
+        if (successMessage) {
+          successMessage.style.display = "none";
+        }
+      }
+    });
+  } else {
+    console.warn("Form not found.");
+  }
+});
+
+
+//////////////////////////////////////////////////////////////FORM CHECKOUT////////////////////////////////////////////////////////
+
+document.addEventListener("DOMContentLoaded", function () {
+  let msMemData = localStorage.getItem("_ms-mem");
+  let member_id = null;
+
+  // Select button containers
+  let memberFees = document.getElementById("member-fees");
+  let nonMemberFees = document.getElementById("non-member-fees");
+
+  if (msMemData) {
+    try {
+      let parsedData = JSON.parse(msMemData);
+      let memberType = parsedData?.customFields?.["user-type"];
+      member_id = parsedData?.id;
+
+      console.log("Parsed Data:", parsedData);
+      console.log("Member Type:", memberType);
+      console.log("Member IDss:", member_id);
+
+      if (memberType === "Non-member") {
+        console.log("User is a NON-MEMBER. Showing Non-Member Fees.");
+        memberFees?.classList.add("hidden");
+        nonMemberFees?.classList.remove("hidden");
+      } else {
+        console.log("User is a MEMBER. Showing Member Fees.");
+        memberFees?.classList.remove("hidden");
+        nonMemberFees?.classList.add("hidden");
+      }
+    } catch (error) {
+      console.error("Error parsing _ms-mem data", error);
+    }
+  } else {
+    console.log("No _ms-mem found. Defaulting to Non-Member Fees.");
+    memberFees?.classList.add("hidden");
+    nonMemberFees?.classList.remove("hidden");
+  }
+
+  // Redirects
+  document.getElementById("member-fees")?.addEventListener("click", async function () {
+    if (!member_id) {
+      console.log("You must be logged in as a member.");
+      return;
+    }
+
+    try {
+      const response = await fetch('https://biaw-server-hbwi.onrender.com/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: member_id,
+          isMember: true
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.log('Error creating checkout session');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      console.log('Error creating checkout session');
+    }
+  });
+
+  document.getElementById("non-member-fees")?.addEventListener("click", async function () {
+    try {
+      const response = await fetch('https://biaw-server-hbwi.onrender.com/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: member_id,
+          isMember: false
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.log('Error creating checkout session');
+
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error creating checkout session');
+    }
+  });
+});
+
+

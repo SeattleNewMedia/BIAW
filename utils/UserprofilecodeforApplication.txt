@@ -1,0 +1,135 @@
+///////////////////////////////////////////////////////////AUTOPAY CANCELATION FOR APPLICATION//////////////////////////////////////////
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  const checkbox = document.getElementById('Autopay-Disable');
+  const button = document.getElementById('builderautopaybtn');
+
+  console.log("Autopay toggle script loaded.");
+  console.log("Checkbox element:", checkbox);
+  console.log("Button element:", button);
+
+  if (!checkbox || !button) {
+    console.error("❌ Checkbox or button with custom attributes not found.");
+    return;
+  }
+
+  button.addEventListener("click", async function () {
+    const isChecked = checkbox.checked;
+
+    // Get member data from localStorage
+    const memDataRaw = localStorage.getItem('_ms-mem');
+    let memberId = null;
+
+    try {
+      const memData = JSON.parse(memDataRaw);
+      memberId = memData?.id || null;
+    } catch (err) {
+      console.error("Error parsing _ms-mem from localStorage:", err);
+    }
+
+    if (!memberId) {
+      console.error("No member ID found. Cannot proceed.");
+      console.log("Member information is missing. Please refresh or log in again.");
+      return;
+    }
+
+    const payload = {
+      autopayDisabled: isChecked,
+      memberId: memberId,
+    };
+
+    console.log("Sending payload:", payload);
+
+    try {
+      const response = await fetch("https://biaw-server-hbwi.onrender.com/api/autopay", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log("Server response:", result);
+        console.log("Autopay setting updated successfully.");
+      } else {
+        console.error("Server error:", result);
+        console.log("Failed to update setting. Please try again.");
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      console.log("Network error. Please check your connection.");
+    }
+  });
+});
+
+
+///////////////////////////////////////////////////////RENEW CHECKOUT FOR APPLICATION//////////////////////////////////////////////
+
+
+Webflow.push(function () {
+  console.log("Webflow ready, waiting for renew buttons...");
+
+  function bindRenewButtons() {
+    const buttons = document.getElementById("builderCertifiedRenewBtn");
+    if (!buttons.length) {
+      console.log("No builderCertifiedRenewBtn found");
+      return;
+    }
+
+    buttons.forEach((btn) => {
+      // Avoid rebinding multiple times
+      if (btn.dataset.bound === "true") return;
+
+      btn.dataset.bound = "true";
+      console.log("Binding renew button:", btn);
+
+      btn.addEventListener("click", async (e) => {
+        console.log("Renew button clicked!");
+        e.preventDefault();
+
+        const memData = localStorage.getItem("_ms-mem");
+        if (!memData) {
+          alert("Please log in first");
+          return;
+        }
+
+        try {
+          const memberId = JSON.parse(memData).id;
+
+          const res = await fetch("https://biaw-server-hbwi.onrender.com/api/subscription/create-checkout", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ memberId })
+          });
+
+          const data = await res.json();
+          console.log("Checkout response:", data);
+
+          if (data.url) {
+            window.location.href = data.url;
+          }
+        } catch (err) {
+          console.error("Checkout error:", err);
+          alert("Something went wrong");
+        }
+      });
+    });
+  }
+
+  // Try initially
+  bindRenewButtons();
+
+  // Re-bind on tab click in case buttons are re-rendered
+  const tabs = document.querySelectorAll('[data-w-tab]');
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      setTimeout(bindRenewButtons, 500); // wait for Webflow tab switch
+    });
+  });
+});

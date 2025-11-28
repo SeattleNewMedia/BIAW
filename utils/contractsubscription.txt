@@ -1,0 +1,114 @@
+//////////////////////////////////////////////CONTRACT SUBSCRIPTION CHECKOUT////////////////////////////////////////////////////////
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  let msMemData = localStorage.getItem("_ms-mem");
+  let member_id = null;
+  let isMember = false;
+
+  // Get member data from localStorage
+
+  if (msMemData) {
+    try {
+      let parsedData = JSON.parse(msMemData);
+      let memberType = parsedData?.customFields?.["user-type"];
+      member_id = parsedData?.id;
+
+      // Updated logic based on your condition
+      isMember = memberType !== "Non-member";
+
+      console.log("Parsed Data:", parsedData);
+      console.log("Member Type:", memberType);
+      console.log("Member ID:", member_id);
+      console.log("Is Member:", isMember); // true = member, false = non-member
+    } catch (error) {
+      console.error("Error parsing _ms-mem data", error);
+    }
+  }
+
+  // Subscription button handler
+  document.getElementById("subscription")?.addEventListener("click", async function () {
+    try {
+      const response = await fetch('https://biaw-server-hbwi.onrender.com/api/product/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: member_id,
+          isMember: isMember
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.log('Error creating checkout session');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      console.log('Error creating checkout session');
+    }
+  });
+});
+
+
+///////////////////////////////////////////////CONTRACT SUBSCRIPTION RENEW CHECKOUT/////////////////////////////////////////////////
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  let msMemData = localStorage.getItem("_ms-mem");
+  let member_id = null;
+  let isMember = false;
+
+  // Get member data from localStorage
+  if (msMemData) {
+    try {
+      let parsedData = JSON.parse(msMemData);
+      let memberType = parsedData?.customFields?.["user-type"];
+      member_id = parsedData?.id;
+
+      // Updated logic based on your condition
+      isMember = memberType !== "Non-member";
+
+      console.log("Parsed Data:", parsedData);
+      console.log("Member Type:", memberType);
+      console.log("Member ID:", member_id);
+      console.log("Is Member:", isMember); // true = member, false = non-member
+    } catch (error) {
+      console.error("Error parsing _ms-mem data", error);
+    }
+  }
+
+  // Subscription button handler
+  document.getElementById("re-subscription")?.addEventListener("click", async function () {
+    try {
+      const response = await fetch('https://biaw-server-hbwi.onrender.com/api/subscription/create-renewal-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: member_id,
+          isMember: isMember
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.log('Error creating checkout session');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      console.log('Error creating checkout session');
+    }
+  });
+});
+
+
+
+re subscription = https://buy.stripe.com/6oEg2Gfgzaow7w44go
+button = https://buy.stripe.com/28o6s6ecvcwEaIg14b
