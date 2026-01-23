@@ -194,20 +194,112 @@ class WebflowService {
     }
   }
 
-  // Validate Webflow item IDs
+
+    // Validate Webflow item IDs
+  // static async validateWebflowItemIds(itemIds) {
+  //   try {
+  //     const response = await axios.get(`${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`, {
+  //       headers: WEBFLOW_CONFIG.headers,
+  //     });
+
+  //     const webflowItems = response.data.items;
+  //     const webflowItemIds = new Set(webflowItems.map((item) => item.id));
+
+  //     return itemIds.filter((id) => webflowItemIds.has(id));
+  //   } catch (error) {
+  //     logError("Validating Webflow item IDs", error);
+  //     throw error;
+  //   }
+  // }
+
+
+  // Validate Webflow item IDs - fetches ALL items with pagination to include both old and new classes
   static async validateWebflowItemIds(itemIds) {
     try {
-      const response = await axios.get(`${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`, {
-        headers: WEBFLOW_CONFIG.headers,
-      });
+      // Fetch all items with pagination to ensure we get both old and new items
+      let allWebflowItems = [];
+      let offset = 0;
+      const limit = 100; // Webflow API limit per page
+      let hasMore = true;
+      let pageCount = 0;
+      const maxPages = 200; // Safety limit to prevent infinite loops
 
-      const webflowItems = response.data.items;
-      const webflowItemIds = new Set(webflowItems.map((item) => item.id));
+      console.log(`Starting to fetch Webflow items for validation. Input IDs: ${itemIds.length}`);
 
-      return itemIds.filter((id) => webflowItemIds.has(id));
+      while (hasMore && pageCount < maxPages) {
+        try {
+          const response = await axios.get(`${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`, {
+            headers: WEBFLOW_CONFIG.headers,
+            params: {
+              offset: offset,
+              limit: limit
+            }
+          });
+
+          const items = response.data.items || [];
+          allWebflowItems = allWebflowItems.concat(items);
+          pageCount++;
+
+          console.log(`Fetched page ${pageCount}: ${items.length} items (total so far: ${allWebflowItems.length})`);
+
+          // Check if there are more items to fetch
+          // If we got fewer items than the limit, we've reached the end
+          hasMore = items.length === limit;
+          offset += limit;
+
+          // If no items returned, we're done
+          if (items.length === 0) {
+            hasMore = false;
+          }
+        } catch (pageError) {
+          // If offset-based pagination fails, try without offset (might return all items)
+          if (offset > 0 && pageError.response?.status === 400) {
+            console.warn('Offset-based pagination not supported, trying single request for all items');
+            try {
+              const singleResponse = await axios.get(`${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`, {
+                headers: WEBFLOW_CONFIG.headers,
+              });
+              const singleItems = singleResponse.data.items || [];
+              allWebflowItems = allWebflowItems.concat(singleItems);
+              console.log(`Fetched ${singleItems.length} items in single request`);
+            } catch (singleError) {
+              console.error('Single request also failed:', singleError.message);
+            }
+          } else {
+            console.error(`Error fetching page at offset ${offset}:`, pageError.message);
+          }
+          hasMore = false;
+        }
+      }
+
+      console.log(`Fetched ${allWebflowItems.length} total items from Webflow for validation (${pageCount} pages)`);
+      const webflowItemIds = new Set(allWebflowItems.map((item) => item.id));
+
+      const validatedIds = itemIds.filter((id) => webflowItemIds.has(id));
+      const invalidIds = itemIds.filter((id) => !webflowItemIds.has(id));
+      
+      if (invalidIds.length > 0) {
+        console.warn(`The following ${invalidIds.length} item IDs were not found in Webflow and will be excluded:`, invalidIds);
+      }
+      
+      console.log(`Validated ${validatedIds.length} out of ${itemIds.length} item IDs`);
+      return validatedIds;
     } catch (error) {
-      logError("Validating Webflow item IDs", error);
-      throw error;
+      // Final fallback: try single request without pagination
+      console.warn('Pagination failed, attempting single request as fallback:', error.message);
+      try {
+        const response = await axios.get(`${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`, {
+          headers: WEBFLOW_CONFIG.headers,
+        });
+        const webflowItems = response.data.items || [];
+        const webflowItemIds = new Set(webflowItems.map((item) => item.id));
+        const validatedIds = itemIds.filter((id) => webflowItemIds.has(id));
+        console.warn(`Fallback: Validated ${validatedIds.length} out of ${itemIds.length} item IDs (may be incomplete if pagination is needed)`);
+        return validatedIds;
+      } catch (fallbackError) {
+        logError("Validating Webflow item IDs", fallbackError);
+        throw fallbackError;
+      }
     }
   }
 
