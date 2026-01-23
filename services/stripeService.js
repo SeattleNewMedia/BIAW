@@ -147,71 +147,18 @@ class StripeService {
           country: "US",
         };
 
-        // Search for existing customer with this class location
-        const classId = classDetails["Field ID"] || classDetails.id;
-        const className = classDetails["Name"];
-        
-        console.log('Searching for existing customer with class ID:', classId, 'and class name:', className);
-        
-        let existingCustomer = null;
-        
-        try {
-          // Use Stripe's search functionality to find customers by metadata
-          const searchQuery = `metadata['class_id']:'${classId}' AND metadata['customer_type']:'class_location'`;
-          console.log('Search query:', searchQuery);
-          
-          const searchResults = await stripe.customers.search({
-            query: searchQuery,
-            limit: 10
-          });
-          
-          console.log('Search results:', searchResults.data.length, 'customers found');
-          
-          // Check if any of the found customers also match the class name
-          for (const customer of searchResults.data) {
-            console.log('Checking customer:', customer.id, 'metadata:', customer.metadata);
-            if (customer.metadata?.class_name === className) {
-              existingCustomer = customer;
-              console.log('Found existing customer:', customer.id);
-              break;
-            }
+        // Create new customer with class location
+        const customer = await stripe.customers.create({
+          name: classDetails["Name"],
+          address: classAddress,
+          metadata: {
+            class_id: classDetails["Field ID"] || classDetails.id,
+            class_name: classDetails["Name"],
+            customer_type: 'class_location'
           }
-        } catch (searchError) {
-          console.log('Search failed, falling back to list method:', searchError.message);
-          
-          // Fallback to list method if search fails
-          const existingCustomers = await stripe.customers.list({
-            limit: 100
-          });
-
-          for (const customer of existingCustomers.data) {
-            if (customer.metadata?.class_id === classId &&
-                customer.metadata?.class_name === className &&
-                customer.metadata?.customer_type === 'class_location') {
-              existingCustomer = customer;
-              console.log('Found existing customer via list:', customer.id);
-              break;
-            }
-          }
-        }
-
-        if (existingCustomer) {
-          console.log('Using existing customer:', existingCustomer.id);
-          customerId = existingCustomer.id;
-        } else {
-          // Create new customer with class location
-          const customer = await stripe.customers.create({
-            name: classDetails["Name"],
-            address: classAddress,
-            metadata: {
-              class_id: classDetails["Field ID"] || classDetails.id,
-              class_name: classDetails["Name"],
-              customer_type: 'class_location'
-            }
-          });
-          console.log('Created new customer:', customer.id);
-          customerId = customer.id;
-        }
+        });
+        console.log('Created new customer:', customer.id);
+        customerId = customer.id;
       }
       // Handle existing price IDs - update their products with tax codes
       for (const item of lineItems) {
