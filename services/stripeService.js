@@ -128,257 +128,257 @@ class StripeService {
   //   }
   // }
 
-  // static async createCheckoutSession(lineItems, successUrl, cancelUrl, clientReferenceId, metadata, classDetails, userDetails) {
-  //   try {
-  //     let customerId = undefined;
-  //     // Check if Product Type is "In person" - handle both string and object formats
-  //     const productType = classDetails["Product Type"];
-  //     const isInPerson = typeof productType === 'string' 
-  //       ? productType === "In person" 
-  //       : productType?.name === "In person";
-      
-  //     if (classDetails && isInPerson) {
-  //       // Extract class location address
-  //       const classAddress = {
-  //         line1: (classDetails["Address (from Class Location)"] && classDetails["Address (from Class Location)"][0]) || "",
-  //         city: (classDetails["City (from Class Location)"] && classDetails["City (from Class Location)"][0]) || "",
-  //         state: (classDetails["State (from Class Location)"] && classDetails["State (from Class Location)"][0]) || "",
-  //         postal_code: (classDetails["Zip (from Class Location)"] && classDetails["Zip (from Class Location)"][0]) || "",
-  //         country: "US",
-  //       };
-
-  //       // Search for existing customer with this class location
-  //       const classId = classDetails["Field ID"] || classDetails.id;
-  //       const className = classDetails["Name"];
-        
-  //       console.log('Searching for existing customer with class ID:', classId, 'and class name:', className);
-        
-  //       let existingCustomer = null;
-        
-  //       try {
-  //         // Use Stripe's search functionality to find customers by metadata
-  //         const searchQuery = `metadata['class_id']:'${classId}' AND metadata['customer_type']:'class_location'`;
-  //         console.log('Search query:', searchQuery);
-          
-  //         const searchResults = await stripe.customers.search({
-  //           query: searchQuery,
-  //           limit: 10
-  //         });
-          
-  //         console.log('Search results:', searchResults.data.length, 'customers found');
-          
-  //         // Check if any of the found customers also match the class name
-  //         for (const customer of searchResults.data) {
-  //           console.log('Checking customer:', customer.id, 'metadata:', customer.metadata);
-  //           if (customer.metadata?.class_name === className) {
-  //             existingCustomer = customer;
-  //             console.log('Found existing customer:', customer.id);
-  //             break;
-  //           }
-  //         }
-  //       } catch (searchError) {
-  //         console.log('Search failed, falling back to list method:', searchError.message);
-          
-  //         // Fallback to list method if search fails
-  //         const existingCustomers = await stripe.customers.list({
-  //           limit: 100
-  //         });
-
-  //         for (const customer of existingCustomers.data) {
-  //           if (customer.metadata?.class_id === classId &&
-  //               customer.metadata?.class_name === className &&
-  //               customer.metadata?.customer_type === 'class_location') {
-  //             existingCustomer = customer;
-  //             console.log('Found existing customer via list:', customer.id);
-  //             break;
-  //           }
-  //         }
-  //       }
-
-  //       if (existingCustomer) {
-  //         console.log('Using existing customer:', existingCustomer.id);
-  //         customerId = existingCustomer.id;
-  //       } else {
-  //         // Create new customer with class location
-  //         const customer = await stripe.customers.create({
-  //           name: classDetails["Name"],
-  //           address: classAddress,
-  //           metadata: {
-  //             class_id: classDetails["Field ID"] || classDetails.id,
-  //             class_name: classDetails["Name"],
-  //             customer_type: 'class_location'
-  //           }
-  //         });
-  //         console.log('Created new customer:', customer.id);
-  //         customerId = customer.id;
-  //       }
-  //     }
-  //     // Handle existing price IDs - update their products with tax codes
-  //     for (const item of lineItems) {
-  //       if (item.price && !item.price_data) {
-  //         // This is an existing price ID, update its product with tax code
-  //         try {
-  //           const price = await stripe.prices.retrieve(item.price);
-  //           const product = await stripe.products.retrieve(price.product);
-            
-  //           if (!product.tax_code) {
-  //             const productType = classDetails["Product Type"];
-  //             const taxCode = getTaxCodeForClass(productType);
-              
-  //             await stripe.products.update(product.id, {
-  //               tax_code: taxCode
-  //             });
-  //             console.log(`Updated product ${product.id} with tax code ${taxCode} for ${productType} class`);
-  //           } else {
-  //             console.log(`Product ${product.id} already has tax code: ${product.tax_code}`);
-  //           }
-  //         } catch (error) {
-  //           console.error('Error updating product tax code:', error);
-  //           // Continue with checkout even if product update fails
-  //         }
-  //       }
-  //     }
-
-  //     const billingAddressCollection = isInPerson ? 'auto' : 'required';
-  //     const session = await stripe.checkout.sessions.create({
-  //       line_items: lineItems.map(item => {
-  //         if (item.price_data && item.price_data.product_data) {
-  //           // Add tax_code if not already present
-  //           if (!item.price_data.product_data.tax_code) {
-  //             const productType = classDetails["Product Type"];
-  //             const taxCode = getTaxCodeForClass(productType);
-  //             item.price_data.product_data.tax_code = taxCode;
-  //             console.log(`Assigned tax code ${taxCode} to product for ${productType} class`);
-  //           } else {
-  //             console.log(`Product already has tax code: ${item.price_data.product_data.tax_code}`);
-  //           }
-  //         } else if (item.price) {
-  //           // For existing price IDs, we need to update the product
-  //           console.log('Price ID provided, tax code will be applied via product update');
-  //         }
-  //         return item;
-  //       }),
-  //       mode: 'payment',
-  //       allow_promotion_codes: true,
-  //       success_url: successUrl,
-  //       cancel_url: cancelUrl,
-  //       client_reference_id: clientReferenceId,
-  //       metadata: metadata,
-  //       automatic_tax: { enabled: true },
-  //       billing_address_collection: billingAddressCollection,
-  //       ...(customerId ? { customer: customerId } : {}),
-  //     });
-  //     return session;
-  //   } catch (error) {
-  //     logError("Creating checkout session", error);
-  //     throw error;
-  //   }
-  // }
-
-static async createCheckoutSession(
-  lineItems,
-  successUrl,
-  cancelUrl,
-  clientReferenceId,
-  metadata,
-  classDetails
-) {
-  try {
-    let customerId;
-
-    /* ✅ Detect if the class is In person */
-    const productType = classDetails["Product Type"];
-    const isInPerson =
-      typeof productType === "string"
-        ? productType === "In person"
+  static async createCheckoutSession(lineItems, successUrl, cancelUrl, clientReferenceId, metadata, classDetails, userDetails) {
+    try {
+      let customerId = undefined;
+      // Check if Product Type is "In person" - handle both string and object formats
+      const productType = classDetails["Product Type"];
+      const isInPerson = typeof productType === 'string' 
+        ? productType === "In person" 
         : productType?.name === "In person";
+      
+      if (classDetails && isInPerson) {
+        // Extract class location address
+        const classAddress = {
+          line1: (classDetails["Address (from Class Location)"] && classDetails["Address (from Class Location)"][0]) || "",
+          city: (classDetails["City (from Class Location)"] && classDetails["City (from Class Location)"][0]) || "",
+          state: (classDetails["State (from Class Location)"] && classDetails["State (from Class Location)"][0]) || "",
+          postal_code: (classDetails["Zip (from Class Location)"] && classDetails["Zip (from Class Location)"][0]) || "",
+          country: "US",
+        };
 
-    /* ✅ Create Stripe Customer for the class location */
-    if (isInPerson) {
-      const classAddress = {
-        line1: classDetails["Address (from Class Location)"]?.[0] || "",
-        city: classDetails["City (from Class Location)"]?.[0] || "",
-        state: classDetails["State (from Class Location)"]?.[0] || "",
-        postal_code:
-          classDetails["Zip (from Class Location)"]?.[0] || "",
-        country: "US",
-      };
-
-      const customer = await stripe.customers.create({
-        name: classDetails["Name"],
-        address: classAddress,
-        metadata: {
-          class_id: classDetails["Field ID"] || classDetails.id,
-          class_name: classDetails["Name"],
-          customer_type: "class_location",
-        },
-      });
-
-      customerId = customer.id;
-    }
-
-    /* ✅ Automatically assign the correct tax code to products */
-    for (const item of lineItems) {
-      if (item.price && !item.price_data) {
+        // Search for existing customer with this class location
+        const classId = classDetails["Field ID"] || classDetails.id;
+        const className = classDetails["Name"];
+        
+        console.log('Searching for existing customer with class ID:', classId, 'and class name:', className);
+        
+        let existingCustomer = null;
+        
         try {
-          const price = await stripe.prices.retrieve(item.price);
-          const product = await stripe.products.retrieve(price.product);
-
-          if (!product.tax_code) {
-            const taxCode = getTaxCodeForClass(
-              classDetails["Product Type"]
-            );
-            await stripe.products.update(product.id, {
-              tax_code: taxCode,
-            });
+          // Use Stripe's search functionality to find customers by metadata
+          const searchQuery = `metadata['class_id']:'${classId}' AND metadata['customer_type']:'class_location'`;
+          console.log('Search query:', searchQuery);
+          
+          const searchResults = await stripe.customers.search({
+            query: searchQuery,
+            limit: 10
+          });
+          
+          console.log('Search results:', searchResults.data.length, 'customers found');
+          
+          // Check if any of the found customers also match the class name
+          for (const customer of searchResults.data) {
+            console.log('Checking customer:', customer.id, 'metadata:', customer.metadata);
+            if (customer.metadata?.class_name === className) {
+              existingCustomer = customer;
+              console.log('Found existing customer:', customer.id);
+              break;
+            }
           }
-        } catch (err) {
-          console.error("Tax code update failed:", err);
+        } catch (searchError) {
+          console.log('Search failed, falling back to list method:', searchError.message);
+          
+          // Fallback to list method if search fails
+          const existingCustomers = await stripe.customers.list({
+            limit: 100
+          });
+
+          for (const customer of existingCustomers.data) {
+            if (customer.metadata?.class_id === classId &&
+                customer.metadata?.class_name === className &&
+                customer.metadata?.customer_type === 'class_location') {
+              existingCustomer = customer;
+              console.log('Found existing customer via list:', customer.id);
+              break;
+            }
+          }
+        }
+
+        if (existingCustomer) {
+          console.log('Using existing customer:', existingCustomer.id);
+          customerId = existingCustomer.id;
+        } else {
+          // Create new customer with class location
+          const customer = await stripe.customers.create({
+            name: classDetails["Name"],
+            address: classAddress,
+            metadata: {
+              class_id: classDetails["Field ID"] || classDetails.id,
+              class_name: classDetails["Name"],
+              customer_type: 'class_location'
+            }
+          });
+          console.log('Created new customer:', customer.id);
+          customerId = customer.id;
         }
       }
-    }
-
-    /* ✅ Control whether billing address is required */
-    const billingAddressCollection = isInPerson
-      ? "auto"
-      : "required";
-
-    const session = await stripe.checkout.sessions.create({
-      line_items: lineItems.map((item) => {
-        if (
-          item.price_data?.product_data &&
-          !item.price_data.product_data.tax_code
-        ) {
-          item.price_data.product_data.tax_code =
-            getTaxCodeForClass(classDetails["Product Type"]);
+      // Handle existing price IDs - update their products with tax codes
+      for (const item of lineItems) {
+        if (item.price && !item.price_data) {
+          // This is an existing price ID, update its product with tax code
+          try {
+            const price = await stripe.prices.retrieve(item.price);
+            const product = await stripe.products.retrieve(price.product);
+            
+            if (!product.tax_code) {
+              const productType = classDetails["Product Type"];
+              const taxCode = getTaxCodeForClass(productType);
+              
+              await stripe.products.update(product.id, {
+                tax_code: taxCode
+              });
+              console.log(`Updated product ${product.id} with tax code ${taxCode} for ${productType} class`);
+            } else {
+              console.log(`Product ${product.id} already has tax code: ${product.tax_code}`);
+            }
+          } catch (error) {
+            console.error('Error updating product tax code:', error);
+            // Continue with checkout even if product update fails
+          }
         }
-        return item;
-      }),
+      }
 
-      mode: "payment",
-
-      /* ✅ Allow promo codes */
-      allow_promotion_codes: true,
-
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      client_reference_id: clientReferenceId,
-      metadata,
-
-      /* ✅ Enable automatic tax calculation */
-      automatic_tax: { enabled: true },
-
-      billing_address_collection: billingAddressCollection,
-
-      ...(customerId ? { customer: customerId } : {}),
-    });
-
-    return session;
-  } catch (error) {
-    logError("Creating checkout session", error);
-    throw error;
+      const billingAddressCollection = isInPerson ? 'auto' : 'required';
+      const session = await stripe.checkout.sessions.create({
+        line_items: lineItems.map(item => {
+          if (item.price_data && item.price_data.product_data) {
+            // Add tax_code if not already present
+            if (!item.price_data.product_data.tax_code) {
+              const productType = classDetails["Product Type"];
+              const taxCode = getTaxCodeForClass(productType);
+              item.price_data.product_data.tax_code = taxCode;
+              console.log(`Assigned tax code ${taxCode} to product for ${productType} class`);
+            } else {
+              console.log(`Product already has tax code: ${item.price_data.product_data.tax_code}`);
+            }
+          } else if (item.price) {
+            // For existing price IDs, we need to update the product
+            console.log('Price ID provided, tax code will be applied via product update');
+          }
+          return item;
+        }),
+        mode: 'payment',
+        allow_promotion_codes: true,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        client_reference_id: clientReferenceId,
+        metadata: metadata,
+        automatic_tax: { enabled: true },
+        billing_address_collection: billingAddressCollection,
+        ...(customerId ? { customer: customerId } : {}),
+      });
+      return session;
+    } catch (error) {
+      logError("Creating checkout session", error);
+      throw error;
+    }
   }
-}
+
+// static async createCheckoutSession(
+//   lineItems,
+//   successUrl,
+//   cancelUrl,
+//   clientReferenceId,
+//   metadata,
+//   classDetails
+// ) {
+//   try {
+//     let customerId;
+
+//     /* ✅ Detect if the class is In person */
+//     const productType = classDetails["Product Type"];
+//     const isInPerson =
+//       typeof productType === "string"
+//         ? productType === "In person"
+//         : productType?.name === "In person";
+
+//     /* ✅ Create Stripe Customer for the class location */
+//     if (isInPerson) {
+//       const classAddress = {
+//         line1: classDetails["Address (from Class Location)"]?.[0] || "",
+//         city: classDetails["City (from Class Location)"]?.[0] || "",
+//         state: classDetails["State (from Class Location)"]?.[0] || "",
+//         postal_code:
+//           classDetails["Zip (from Class Location)"]?.[0] || "",
+//         country: "US",
+//       };
+
+//       const customer = await stripe.customers.create({
+//         name: classDetails["Name"],
+//         address: classAddress,
+//         metadata: {
+//           class_id: classDetails["Field ID"] || classDetails.id,
+//           class_name: classDetails["Name"],
+//           customer_type: "class_location",
+//         },
+//       });
+
+//       customerId = customer.id;
+//     }
+
+//     /* ✅ Automatically assign the correct tax code to products */
+//     for (const item of lineItems) {
+//       if (item.price && !item.price_data) {
+//         try {
+//           const price = await stripe.prices.retrieve(item.price);
+//           const product = await stripe.products.retrieve(price.product);
+
+//           if (!product.tax_code) {
+//             const taxCode = getTaxCodeForClass(
+//               classDetails["Product Type"]
+//             );
+//             await stripe.products.update(product.id, {
+//               tax_code: taxCode,
+//             });
+//           }
+//         } catch (err) {
+//           console.error("Tax code update failed:", err);
+//         }
+//       }
+//     }
+
+//     /* ✅ Control whether billing address is required */
+//     const billingAddressCollection = isInPerson
+//       ? "auto"
+//       : "required";
+
+//     const session = await stripe.checkout.sessions.create({
+//       line_items: lineItems.map((item) => {
+//         if (
+//           item.price_data?.product_data &&
+//           !item.price_data.product_data.tax_code
+//         ) {
+//           item.price_data.product_data.tax_code =
+//             getTaxCodeForClass(classDetails["Product Type"]);
+//         }
+//         return item;
+//       }),
+
+//       mode: "payment",
+
+//       /* ✅ Allow promo codes */
+//       allow_promotion_codes: true,
+
+//       success_url: successUrl,
+//       cancel_url: cancelUrl,
+//       client_reference_id: clientReferenceId,
+//       metadata,
+
+//       /* ✅ Enable automatic tax calculation */
+//       automatic_tax: { enabled: true },
+
+//       billing_address_collection: billingAddressCollection,
+
+//       ...(customerId ? { customer: customerId } : {}),
+//     });
+
+//     return session;
+//   } catch (error) {
+//     logError("Creating checkout session", error);
+//     throw error;
+//   }
+// }
 
 
 
