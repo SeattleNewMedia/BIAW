@@ -151,15 +151,55 @@ class CategorySyncService {
           console.log(`Updating existing categories for Airtable ID ${airtableCategoryId} (Webflow IDs present)`);
           let updatedAny = false;
           for (const categoryData of categoriesToSend) {
-            const existingRecords = webflowCategoriesByAirtableId[airtableCategoryId]?.filter(
+            // First try to find by category-airtable-id
+            let existingRecords = webflowCategoriesByAirtableId[airtableCategoryId]?.filter(
               record => record.fieldData["member-non-member"] === categoryData.fieldData["member-non-member"]
             ) || [];
+            
+            // Fallback: If no records found by category-airtable-id, try using Webflow IDs from Airtable
+            if (existingRecords.length === 0) {
+              console.warn(`No records found by category-airtable-id for ${airtableCategoryId}, trying fallback using Webflow IDs from Airtable`);
+              const targetWebflowId = categoryData.fieldData["member-non-member"] === "Yes" 
+                ? latestMemberWebflowId 
+                : latestNonMemberWebflowId;
+              
+              if (targetWebflowId) {
+                // Find the record by its Webflow ID
+                const recordById = existingWebflowCategories.find(
+                  record => record.id === targetWebflowId && 
+                  record.fieldData["member-non-member"] === categoryData.fieldData["member-non-member"]
+                );
+                
+                if (recordById) {
+                  existingRecords = [recordById];
+                  console.log(`Found record by Webflow ID fallback: ${targetWebflowId}`);
+                  
+                  // Ensure category-airtable-id is set for future lookups
+                  if (!recordById.fieldData["category-airtable-id"] || recordById.fieldData["category-airtable-id"] !== airtableCategoryId) {
+                    console.log(`Setting missing category-airtable-id on Webflow record ${targetWebflowId}`);
+                    categoryData.fieldData["category-airtable-id"] = airtableCategoryId;
+                  }
+                } else {
+                  console.warn(`Webflow record ${targetWebflowId} not found in existing categories`);
+                }
+              } else {
+                console.warn(`No Webflow ID available in Airtable for ${categoryData.fieldData["member-non-member"]} category`);
+              }
+            }
+            
             for (const record of existingRecords) {
               const updates = Object.fromEntries(
                 Object.entries(categoryData.fieldData).filter(([key, value]) =>
                   (record.fieldData[key] || "").toString() !== value.toString()
                 )
               );
+              
+              // Always ensure category-airtable-id is set (even if nothing else changed)
+              if (!record.fieldData["category-airtable-id"] || record.fieldData["category-airtable-id"] !== airtableCategoryId) {
+                updates["category-airtable-id"] = airtableCategoryId;
+                console.log(`Adding missing or incorrect category-airtable-id to updates for record ${record.id}`);
+              }
+              
               if (Object.keys(updates).length) {
                 updatedAny = true;
                 console.log(`Updating Webflow record ${record.id} with changes:`, Object.keys(updates), `for member-non-member:`, categoryData.fieldData["member-non-member"]);
