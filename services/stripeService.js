@@ -281,28 +281,24 @@ static async createCheckoutSession(
   cancelUrl,
   clientReferenceId,
   metadata,
-  classDetails,
-  userDetails
+  classDetails
 ) {
   try {
     let customerId;
 
-    // Check if Product Type is "In person"
+    /* ✅ Detect if the class is In person */
     const productType = classDetails["Product Type"];
     const isInPerson =
       typeof productType === "string"
         ? productType === "In person"
         : productType?.name === "In person";
 
-    // Create a new customer for in-person classes
-    if (classDetails && isInPerson) {
+    /* ✅ Create Stripe Customer for the class location */
+    if (isInPerson) {
       const classAddress = {
-        line1:
-          classDetails["Address (from Class Location)"]?.[0] || "",
-        city:
-          classDetails["City (from Class Location)"]?.[0] || "",
-        state:
-          classDetails["State (from Class Location)"]?.[0] || "",
+        line1: classDetails["Address (from Class Location)"]?.[0] || "",
+        city: classDetails["City (from Class Location)"]?.[0] || "",
+        state: classDetails["State (from Class Location)"]?.[0] || "",
         postal_code:
           classDetails["Zip (from Class Location)"]?.[0] || "",
         country: "US",
@@ -318,11 +314,10 @@ static async createCheckoutSession(
         },
       });
 
-      console.log("Created new customer:", customer.id);
       customerId = customer.id;
     }
 
-    // Handle existing price IDs and ensure tax codes are applied
+    /* ✅ Automatically assign the correct tax code to products */
     for (const item of lineItems) {
       if (item.price && !item.price_data) {
         try {
@@ -333,24 +328,17 @@ static async createCheckoutSession(
             const taxCode = getTaxCodeForClass(
               classDetails["Product Type"]
             );
-
             await stripe.products.update(product.id, {
               tax_code: taxCode,
             });
-
-            console.log(
-              `Updated product ${product.id} with tax code ${taxCode}`
-            );
           }
-        } catch (error) {
-          console.error(
-            "Error updating product tax code:",
-            error
-          );
+        } catch (err) {
+          console.error("Tax code update failed:", err);
         }
       }
     }
 
+    /* ✅ Control whether billing address is required */
     const billingAddressCollection = isInPerson
       ? "auto"
       : "required";
@@ -358,25 +346,30 @@ static async createCheckoutSession(
     const session = await stripe.checkout.sessions.create({
       line_items: lineItems.map((item) => {
         if (
-          item.price_data &&
-          item.price_data.product_data &&
+          item.price_data?.product_data &&
           !item.price_data.product_data.tax_code
         ) {
-          const taxCode = getTaxCodeForClass(
-            classDetails["Product Type"]
-          );
-          item.price_data.product_data.tax_code = taxCode;
+          item.price_data.product_data.tax_code =
+            getTaxCodeForClass(classDetails["Product Type"]);
         }
         return item;
       }),
+
       mode: "payment",
+
+      /* ✅ Allow promo codes */
       allow_promotion_codes: true,
+
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: clientReferenceId,
       metadata,
+
+      /* ✅ Enable automatic tax calculation */
       automatic_tax: { enabled: true },
+
       billing_address_collection: billingAddressCollection,
+
       ...(customerId ? { customer: customerId } : {}),
     });
 
