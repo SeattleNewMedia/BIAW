@@ -275,7 +275,7 @@ class StripeService {
   //   }
   // }
 
-  static async createCheckoutSession(
+static async createCheckoutSession(
   lineItems,
   successUrl,
   cancelUrl,
@@ -285,24 +285,26 @@ class StripeService {
   userDetails
 ) {
   try {
-    // Determine class type
+    let customerId;
+
+    // Check if Product Type is "In person"
     const productType = classDetails["Product Type"];
     const isInPerson =
       typeof productType === "string"
         ? productType === "In person"
         : productType?.name === "In person";
 
-    /* -----------------------------
-       Create a NEW customer always
-    ------------------------------ */
-    let customerId;
-
-    if (isInPerson) {
+    // Create a new customer for in-person classes
+    if (classDetails && isInPerson) {
       const classAddress = {
-        line1: classDetails["Address (from Class Location)"]?.[0] || "",
-        city: classDetails["City (from Class Location)"]?.[0] || "",
-        state: classDetails["State (from Class Location)"]?.[0] || "",
-        postal_code: classDetails["Zip (from Class Location)"]?.[0] || "",
+        line1:
+          classDetails["Address (from Class Location)"]?.[0] || "",
+        city:
+          classDetails["City (from Class Location)"]?.[0] || "",
+        state:
+          classDetails["State (from Class Location)"]?.[0] || "",
+        postal_code:
+          classDetails["Zip (from Class Location)"]?.[0] || "",
         country: "US",
       };
 
@@ -316,12 +318,11 @@ class StripeService {
         },
       });
 
+      console.log("Created new customer:", customer.id);
       customerId = customer.id;
     }
 
-    /* ------------------------------------
-       Ensure tax code on existing prices
-    ------------------------------------- */
+    // Handle existing price IDs and ensure tax codes are applied
     for (const item of lineItems) {
       if (item.price && !item.price_data) {
         try {
@@ -329,25 +330,42 @@ class StripeService {
           const product = await stripe.products.retrieve(price.product);
 
           if (!product.tax_code) {
-            const taxCode = getTaxCodeForClass(productType);
-            await stripe.products.update(product.id, { tax_code: taxCode });
+            const taxCode = getTaxCodeForClass(
+              classDetails["Product Type"]
+            );
+
+            await stripe.products.update(product.id, {
+              tax_code: taxCode,
+            });
+
+            console.log(
+              `Updated product ${product.id} with tax code ${taxCode}`
+            );
           }
-        } catch (err) {
-          console.error("Tax code update failed:", err);
+        } catch (error) {
+          console.error(
+            "Error updating product tax code:",
+            error
+          );
         }
       }
     }
 
-    const billingAddressCollection = isInPerson ? "auto" : "required";
+    const billingAddressCollection = isInPerson
+      ? "auto"
+      : "required";
 
-    /* -----------------------------
-       Create Checkout Session
-    ------------------------------ */
     const session = await stripe.checkout.sessions.create({
-      line_items: lineItems.map(item => {
-        if (item.price_data?.product_data && !item.price_data.product_data.tax_code) {
-          item.price_data.product_data.tax_code =
-            getTaxCodeForClass(productType);
+      line_items: lineItems.map((item) => {
+        if (
+          item.price_data &&
+          item.price_data.product_data &&
+          !item.price_data.product_data.tax_code
+        ) {
+          const taxCode = getTaxCodeForClass(
+            classDetails["Product Type"]
+          );
+          item.price_data.product_data.tax_code = taxCode;
         }
         return item;
       }),
@@ -359,12 +377,6 @@ class StripeService {
       metadata,
       automatic_tax: { enabled: true },
       billing_address_collection: billingAddressCollection,
-
-      // 🔑 REQUIRED FIX for your 500 error
-      customer_update: {
-        address: "auto",
-      },
-
       ...(customerId ? { customer: customerId } : {}),
     });
 
