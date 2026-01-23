@@ -138,25 +138,35 @@ class StripeService {
         : productType?.name === "In person";
       
       if (classDetails && isInPerson) {
-        // Extract class location address
-        const classAddress = {
-          line1: (classDetails["Address (from Class Location)"] && classDetails["Address (from Class Location)"][0]) || "",
-          city: (classDetails["City (from Class Location)"] && classDetails["City (from Class Location)"][0]) || "",
-          state: (classDetails["State (from Class Location)"] && classDetails["State (from Class Location)"][0]) || "",
-          postal_code: (classDetails["Zip (from Class Location)"] && classDetails["Zip (from Class Location)"][0]) || "",
-          country: "US",
-        };
+        // Extract class location address - only include fields with values
+        const classAddress = {};
+        const addressLine1 = classDetails["Address (from Class Location)"] && classDetails["Address (from Class Location)"][0];
+        const city = classDetails["City (from Class Location)"] && classDetails["City (from Class Location)"][0];
+        const state = classDetails["State (from Class Location)"] && classDetails["State (from Class Location)"][0];
+        const postalCode = classDetails["Zip (from Class Location)"] && classDetails["Zip (from Class Location)"][0];
+        
+        if (addressLine1) classAddress.line1 = addressLine1;
+        if (city) classAddress.city = city;
+        if (state) classAddress.state = state;
+        if (postalCode) classAddress.postal_code = postalCode;
+        classAddress.country = "US";
 
         // Create new customer with class location
-        const customer = await stripe.customers.create({
+        const customerData = {
           name: classDetails["Name"],
-          address: classAddress,
           metadata: {
             class_id: classDetails["Field ID"] || classDetails.id,
             class_name: classDetails["Name"],
             customer_type: 'class_location'
           }
-        });
+        };
+        
+        // Only add address if we have at least line1 (required for valid address)
+        if (Object.keys(classAddress).length > 1 || classAddress.line1) {
+          customerData.address = classAddress;
+        }
+        
+        const customer = await stripe.customers.create(customerData);
         console.log('Created new customer:', customer.id);
         customerId = customer.id;
       }
@@ -187,7 +197,7 @@ class StripeService {
       }
 
       const billingAddressCollection = isInPerson ? 'auto' : 'required';
-      const session = await stripe.checkout.sessions.create({
+      const sessionConfig = {
         line_items: lineItems.map(item => {
           if (item.price_data && item.price_data.product_data) {
             // Add tax_code if not already present
@@ -213,8 +223,15 @@ class StripeService {
         metadata: metadata,
         automatic_tax: { enabled: true },
         billing_address_collection: billingAddressCollection,
-        ...(customerId ? { customer: customerId } : {}),
-      });
+      };
+
+      // If customer exists, add customer and allow address update from checkout
+      if (customerId) {
+        sessionConfig.customer = customerId;
+        sessionConfig.customer_update = { address: 'auto' };
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionConfig);
       return session;
     } catch (error) {
       logError("Creating checkout session", error);
