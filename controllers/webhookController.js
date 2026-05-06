@@ -279,6 +279,9 @@ class WebhookController {
     });
 
     // Send confirmation email
+    const classDate = classRecord.fields['Date'] || '';
+    const startTime = classRecord.fields['Start time'] || '';
+
     await EmailService.sendRegistrationConfirmation(
       userEmail,
       userName,
@@ -294,6 +297,64 @@ class WebhookController {
       classRecord.fields['Date'] || "",
       classRecord.fields['Start time'] || ""
     );
+
+    const pf = paymentRecord.fields;
+    let firstName = pf['First Name'] || pf['First name'] || '';
+    let lastName = pf['Last Name'] || pf['Last name'] || '';
+    if (!firstName && !lastName && userName) {
+      const parts = String(userName).trim().split(/\s+/);
+      firstName = parts[0] || '';
+      lastName = parts.slice(1).join(' ') || '';
+    }
+
+    const instructorDisplay = Array.isArray(instructorName)
+      ? instructorName.filter(Boolean).join(', ')
+      : instructorName || '—';
+
+    const locationText =
+      classRecord.fields['Location'] ||
+      [platform, location].filter(Boolean).join(', ') ||
+      '—';
+
+    let registrationDate = '';
+    const timeStamp = pf['Time Stamp'];
+    if (timeStamp) {
+      const fromStamp = new Date(parseInt(timeStamp, 10) * 1000);
+      if (!isNaN(fromStamp.getTime())) {
+        registrationDate = fromStamp.toLocaleDateString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+        });
+      }
+    }
+    if (!registrationDate) {
+      registrationDate = new Date().toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
+      });
+    }
+
+    try {
+      await EmailService.sendNewClassRegistrationAdminAlert({
+        className,
+        classDate,
+        startTime,
+        firstName,
+        lastName,
+        userType: pf['UserType'] || pf['User Type'] || '',
+        instructorName: instructorDisplay,
+        mode,
+        locationText,
+        paymentStatus: 'Paid',
+        registrationDate,
+        seatCount,
+        amountDisplay: formatCurrency(amountTotal),
+      });
+    } catch (adminEmailErr) {
+      logError('Admin new class registration alert (non-fatal)', adminEmailErr);
+    }
   }
 }
 

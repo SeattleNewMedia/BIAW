@@ -433,6 +433,93 @@ class ClassController {
         }
       }
 
+      // Emails last: member confirmation + admin alert
+      const classDateRoii = biawClassRecord.fields['Date'] || '';
+      const startTimeRoii = biawClassRecord.fields['Start time'] || '';
+      const instructorRoii = biawClassRecord.fields['Instructor Name (from Instructors)'];
+      const instructorDisplayRoii = Array.isArray(instructorRoii)
+        ? instructorRoii.filter(Boolean).join(', ')
+        : instructorRoii || '—';
+
+      const locationTextRoii =
+        biawClassRecord.fields['Location'] ||
+        [
+          biawClassRecord.fields['Local Association Name (from Class Location)']?.[0],
+          biawClassRecord.fields['City (from Class Location)'],
+        ]
+          .filter(Boolean)
+          .join(', ') ||
+        classlocation;
+
+      let userTypeRoii = '';
+      try {
+        const memberRow = await base(TABLES.MEMBERS).find(validMemberId);
+        const rawUser = memberRow.fields['User'];
+        userTypeRoii =
+          rawUser && typeof rawUser === 'object' && 'name' in rawUser
+            ? rawUser.name
+            : rawUser || '';
+      } catch (memberLookupErr) {
+        logError('ROII admin alert: member User field', memberLookupErr);
+      }
+
+      let registrationDateRoii = '';
+      const submittedAt = fields.submittedAt || fields['submitted-at'];
+      if (submittedAt) {
+        const d = new Date(submittedAt);
+        if (!isNaN(d.getTime())) {
+          registrationDateRoii = d.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+          });
+        }
+      }
+      if (!registrationDateRoii) {
+        const fromStamp = new Date(parseInt(timestampField, 10) * 1000);
+        if (!isNaN(fromStamp.getTime())) {
+          registrationDateRoii = fromStamp.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+          });
+        }
+      }
+      if (!registrationDateRoii) {
+        registrationDateRoii = new Date().toLocaleDateString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+        });
+      }
+
+      let roiiFirst = '';
+      let roiiLast = '';
+      if (signName) {
+        const parts = String(signName).trim().split(/\s+/);
+        roiiFirst = parts[0] || '';
+        roiiLast = parts.slice(1).join(' ') || '';
+      }
+
+      try {
+        await EmailService.sendNewClassRegistrationAdminAlert({
+          className: biawClassRecord.fields['Name'],
+          classDate: classDateRoii,
+          startTime: startTimeRoii,
+          firstName: roiiFirst,
+          lastName: roiiLast,
+          userType: userTypeRoii,
+          instructorName: instructorDisplayRoii,
+          mode: biawClassRecord.fields['Product Type'],
+          locationText: locationTextRoii,
+          paymentStatus: 'Free',
+          registrationDate: registrationDateRoii,
+          seatCount,
+        });
+      } catch (adminEmailErr) {
+        logError('Admin ROII class registration alert (non-fatal)', adminEmailErr);
+      }
+
       res.status(200).send({
         message: "Class registered successfully",
         records: createdRecords,

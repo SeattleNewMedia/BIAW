@@ -51,6 +51,91 @@ class EmailService {
     }
   }
 
+  // Admin copy when a paid registration completes (Stripe webhook path)
+  static async sendNewClassRegistrationAdminAlert(detail) {
+    try {
+      const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleDateString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+        });
+      };
+
+      const {
+        className,
+        classDate,
+        startTime,
+        firstName,
+        lastName,
+        userType,
+        instructorName,
+        mode,
+        locationText,
+        paymentStatus,
+        registrationDate,
+        seatCount,
+        amountDisplay,
+      } = detail;
+
+      const adminEmail = 'andya@biaw.com';
+      const datePart = formatDate(classDate);
+      const subject = datePart
+        ? `New Class Registration Alert – ${className} on ${datePart}.`
+        : `New Class Registration Alert – ${className}.`;
+
+      let schedulePhrase = '';
+      if (datePart && startTime) {
+        schedulePhrase = `, scheduled for ${datePart} at ${startTime}`;
+      } else if (datePart) {
+        schedulePhrase = `, scheduled for ${datePart}`;
+      } else if (startTime) {
+        schedulePhrase = ` at ${startTime}`;
+      }
+
+      const registrantName = [firstName, lastName].filter(Boolean).join(' ').trim() || '—';
+      const amountLine =
+        amountDisplay != null && String(amountDisplay).trim() !== ''
+          ? `<li><strong>Amount Paid:</strong> ${amountDisplay}</li>`
+          : '';
+
+      const mailOptions = {
+        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        to: adminEmail,
+        subject,
+        html: `
+        <p>Dear Andy Arrants,</p>
+
+        <p>This is to inform you that <strong>${registrantName}</strong> has successfully registered for the upcoming class, <strong>${className}</strong>${schedulePhrase}.</p>
+
+        <p><strong>Registration Details:</strong></p>
+        <ul>
+          <li><strong>User Type:</strong> ${userType || '—'}</li>
+          <li><strong>Instructor:</strong> ${instructorName || '—'}</li>
+          <li><strong>Mode of Class:</strong> ${mode || '—'}</li>
+          <li><strong>Location:</strong> ${locationText || '—'}</li>
+          <li><strong>Payment Status:</strong> ${paymentStatus || '—'}</li>
+          <li><strong>Registration Date:</strong> ${registrationDate || '—'}</li>
+          <li><strong>No of Guests attending the session:</strong> ${seatCount}</li>
+          ${amountLine}
+        </ul>
+
+        <p>Best regards,<br>BIAW Support Team</p>
+      `,
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`Admin registration alert sent to ${adminEmail}: ${info.response}`);
+      return info;
+    } catch (error) {
+      logError('Sending admin new class registration alert', error);
+      throw error;
+    }
+  }
+
   // Send waitlist notification
   static async sendWaitlistNotification(email, name, className, classURL) {
     try {
