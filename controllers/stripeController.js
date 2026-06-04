@@ -8,8 +8,14 @@ if (!process.env.WEBFLOW_API_KEY || !process.env.WEBFLOW_COLLECTION_ID) {
   throw new Error('WEBFLOW_API_KEY and WEBFLOW_COLLECTION_ID must be set in environment variables');
 }
 
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-  throw new Error('EMAIL_USER and EMAIL_PASSWORD must be set in environment variables');
+const { isMicrosoftGraphConfigured } = require('../utils/microsoftMailAuth');
+if (!(process.env.EMAIL_FROM || process.env.EMAIL_USER)) {
+  throw new Error('EMAIL_FROM or EMAIL_USER must be set in environment variables');
+}
+if (!isMicrosoftGraphConfigured()) {
+  throw new Error(
+    'Microsoft Graph email is not configured. Set MICROSOFT_TENANT_ID, MICROSOFT_CLIENT_ID, and MICROSOFT_REFRESH_TOKEN (run npm run microsoft-oauth-login)'
+  );
 }
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);

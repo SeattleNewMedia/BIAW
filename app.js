@@ -11,6 +11,7 @@ const productAutopayRoutes = require('./routes/productAutopayRoutes');
 const airtableWebhookRoutes = require('./routes/airtableWebhookRoutes');
 const subscriptionCheckoutRoutes = require('./routes/subscriptionCheckoutRoutes');
 const clickTrackingRoutes = require('./routes/clickTrackingRoutes');
+const emailTestRoutes = require('./routes/emailTestRoutes');
 
 const app = express();
 
@@ -94,6 +95,8 @@ app.get('/api/test-cors', (req, res) => {
 app.get("/", (req, res) => {
   res.send("Server is running and ready to accept requests.");
 });
+
+app.use(emailTestRoutes);
 
 app.use('/api', formRoutes);
 app.use('/api/workspace', workspaceFormRoutes);

@@ -1,67 +1,70 @@
-const nodemailer = require('nodemailer');
 require('dotenv').config();
+
+const {
+  getFromAddress,
+  isMicrosoftGraphConfigured,
+  sendMailViaGraph,
+} = require('./microsoftMailAuth');
+
+function getAuthMode() {
+  const mode = (process.env.EMAIL_AUTH || 'microsoft-graph').trim().toLowerCase();
+  if (mode === 'microsoft-graph' || mode === 'graph') {
+    return 'microsoft-graph';
+  }
+  return mode;
+}
+
+function assertEmailConfigured() {
+  if (getAuthMode() !== 'microsoft-graph') {
+    throw new Error(`Unsupported EMAIL_AUTH mode: ${getAuthMode()}`);
+  }
+  if (!isMicrosoftGraphConfigured()) {
+    const err = new Error('Set MICROSOFT_REFRESH_TOKEN (run npm run microsoft-oauth-login)');
+    err.code = 'MICROSOFT_NOT_CONFIGURED';
+    throw err;
+  }
+  const { email } = getFromAddress();
+  if (!email) {
+    throw new Error('Set EMAIL_FROM or EMAIL_USER (e.g. support@biaw.com)');
+  }
+}
 
 const sendEmail = async (recipientEmail, subject, body) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      host :"smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    });
-
-    const mailOptions = {
-      from:{
-        name  : "BIAW",
-        address : process.env.EMAIL_USER
-      } ,
+    assertEmailConfigured();
+    const result = await sendMailViaGraph({
       to: recipientEmail,
-      subject: subject,
+      subject,
       text: body,
-    };
-
-    await transporter.sendMail(mailOptions);
+    });
+    console.log('Email sent:', result.response, 'to', recipientEmail);
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error sending email:', error.message || error);
   }
 };
 
+function getEmailConfig() {
+  const { email, display } = getFromAddress();
+  return {
+    authMode: getAuthMode(),
+    from: display,
+    fromEmail: email,
+    emailUser: (process.env.EMAIL_USER || email).trim(),
+    microsoftOAuthConfigured: isMicrosoftGraphConfigured(),
+    microsoftTenantId: (process.env.MICROSOFT_TENANT_ID || '').trim() || null,
+    microsoftClientId: (process.env.MICROSOFT_CLIENT_ID || '').trim() || null,
+    smtpHost: (process.env.SMTP_HOST || 'smtp.office365.com').trim(),
+    smtpPort: Number(process.env.SMTP_PORT || 587),
+  };
+}
+
+async function sendTestEmail(to, subject, text, html = null) {
+  assertEmailConfigured();
+  return sendMailViaGraph({ to, subject, text, html });
+}
+
 module.exports = sendEmail;
-
-
-// const nodemailer = require('nodemailer');
-// require('dotenv').config();
-
-// const sendEmail = async (recipientEmail, subject, body) => {
-//   try {
-//     const transporter = nodemailer.createTransport({
-//       host: "smtp.office365.com",
-//       port: 587,
-//       secure: false, // Use TLS
-//       auth: {
-//         user: "abinjoseph12303@outlook.com",
-//         pass: "iwglqodplgtaznfj", // App-specific password if 2FA is enabled
-//       },
-//       // For production, consider removing the tls option or set rejectUnauthorized: true
-//       // tls: { rejectUnauthorized: false },
-//     });
-
-//     const mailOptions = {
-//       from: `"BIAW" <${process.env.EMAIL_USER}>`,
-//       to: recipientEmail,
-//       subject: subject,
-//       text: body,
-//     };
-
-//     const info = await transporter.sendMail(mailOptions);
-//     console.log("Email sent successfully:", info.response);
-//   } catch (error) {
-//     console.error("❌ Error sending email:", error.message || error);
-//   }
-// };
-
-// module.exports = sendEmail;
+module.exports.sendEmail = sendEmail;
+module.exports.sendTestEmail = sendTestEmail;
+module.exports.getEmailConfig = getEmailConfig;
+module.exports.getAuthMode = getAuthMode;
