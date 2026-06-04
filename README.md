@@ -114,9 +114,14 @@ This application follows the **Model-View-Controller (MVC)** pattern with clear 
    WEBFLOW_COLLECTION_ID2=your_collection_id2
    WEBFLOW_COLLECTION_ID3=your_collection_id3
 
-   # Email Configuration
-   EMAIL_USER=your_email@gmail.com
-   EMAIL_PASSWORD=your_email_app_password
+   # Email Configuration (Microsoft Graph — see support-biaw-email-setup.md)
+   EMAIL_AUTH=microsoft-graph
+   EMAIL_FROM=support@biaw.com
+   EMAIL_FROM_NAME=BIAW
+   EMAIL_USER=support@biaw.com
+   MICROSOFT_TENANT_ID=your_biaw_tenant_id
+   MICROSOFT_CLIENT_ID=your_azure_app_client_id
+   MICROSOFT_REFRESH_TOKEN=from_npm_run_microsoft-oauth-login
 
    # Server Configuration
    PORT=4000
@@ -282,7 +287,7 @@ The system uses Airtable as the primary database with the following tables:
 ### External Services
 - **Stripe**: Payment processing and product management
 - **Webflow**: CMS for class display (with staging → live workflow)
-- **Gmail**: Email notifications via Nodemailer
+- **Microsoft Graph**: Email via `support@biaw.com` (OAuth2 — see `support-biaw-email-setup.md`)
 
 ## 🚨 Error Handling
 

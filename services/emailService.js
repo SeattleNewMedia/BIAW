@@ -1,4 +1,10 @@
-const transporter = require('../config/email');
+const mailTransport = require('../config/email');
+
+function emailFrom() {
+  const name = process.env.EMAIL_FROM_NAME || 'BIAW';
+  const address = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  return `"${name}" <${address}>`;
+}
 const { formatCurrency } = require('../utils/helpers');
 const { logError } = require('../utils/helpers');
 
@@ -18,7 +24,7 @@ class EmailService {
       };
 
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: userEmail,
         subject: `Registration Confirmed for "${className}"${classDate ? ` on ${formatDate(classDate)}` : ''}`,
         html: `
@@ -42,7 +48,7 @@ class EmailService {
       `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Email sent to ${userEmail}: ${info.response}`);
       return info;
     } catch (error) {
@@ -103,7 +109,7 @@ class EmailService {
           : '';
 
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: adminEmail,
         subject,
         html: `
@@ -127,7 +133,7 @@ class EmailService {
       `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Admin registration alert sent to ${adminEmail}: ${info.response}`);
       return info;
     } catch (error) {
@@ -140,7 +146,7 @@ class EmailService {
   static async sendWaitlistNotification(email, name, className, classURL) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: email,
         subject: `Seats Available for ${className || 'Your Class'}`,
         html: `
@@ -158,7 +164,7 @@ class EmailService {
         `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Email sent to ${email} for class: ${className}`);
       return info;
     } catch (error) {
@@ -200,13 +206,13 @@ class EmailService {
       `;
 
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: userEmail,
         subject: emailSubject,
         html: emailBody,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Cancellation email sent to ${userEmail}: ${info.response}`);
       return info;
     } catch (error) {
@@ -219,7 +225,7 @@ class EmailService {
   static async sendWaitlistEntryConfirmation(userEmail, className, instructor, classUrl) {
     try {
       const userMailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: userEmail,
         subject: 'You are on the Waitlist for the Class',
         html: `
@@ -234,7 +240,7 @@ class EmailService {
       };
 
       const adminMailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: "andya@biaw.com",
         subject: `Waitlist Alert - On ${new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`,
         html: `
@@ -256,8 +262,8 @@ class EmailService {
         `,
       };
 
-      await transporter.sendMail(userMailOptions);
-      await transporter.sendMail(adminMailOptions);
+      await mailTransport.sendMail(userMailOptions);
+      await mailTransport.sendMail(adminMailOptions);
       console.log('Waitlist entry confirmation emails sent successfully');
     } catch (error) {
       logError('Sending waitlist entry confirmation', error);
@@ -269,7 +275,7 @@ class EmailService {
   static async sendPaymentReminder(userEmail, userName, className, classUrl) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: userEmail,
         subject: "Reminder: Complete Your Payment",
         text: `Hi ${userName}, 
@@ -286,7 +292,7 @@ Best Regards
 BIAW Support Team`,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Payment reminder email sent to ${userEmail}`);
       return info;
     } catch (error) {
@@ -299,7 +305,7 @@ BIAW Support Team`,
   static async sendROIIClassConfirmation(userEmail, userName, className, description, seatCount, classUrl, location) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: userEmail,
         subject: `Class Registration Confirmation for ${className}`,
         html: `
@@ -315,7 +321,7 @@ BIAW Support Team`,
         `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`ROII confirmation email sent to ${userEmail}: ${info.response}`);
       return info;
     } catch (error) {
@@ -328,7 +334,7 @@ BIAW Support Team`,
   static async sendRefundConfirmationEmail(email, username, classname, seatsPurchased) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: email,
         subject: "Class Cancellation and Refund Processed Successfully",
         html: `Dear ${username},<br><br>
@@ -346,7 +352,7 @@ Best regards,<br>
 BIAW Support Team`
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Refund confirmation email sent to ${email}`);
       return info;
     } catch (error) {
@@ -359,7 +365,7 @@ BIAW Support Team`
   static async sendROIICancellationEmail(email, username, classname, seatsPurchased) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: email,
         subject: `Class Cancellation Processed Successfully for ${classname}`,
         html: `
@@ -378,7 +384,7 @@ BIAW Support Team`
 `
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`ROII cancellation email sent to ${email}`);
       return info;
     } catch (error) {
@@ -391,7 +397,7 @@ BIAW Support Team`
   static async sendCancellationWithoutRefundEmail(email, username, classname, seatsPurchased) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: email,
         subject: `Class Cancellation Processed Successfully for ${classname}`,
         text: `Dear ${username},
@@ -407,7 +413,7 @@ Best regards,
 BIAW Support Team`
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Cancellation without refund email sent to ${email}`);
       return info;
     } catch (error) {
@@ -420,7 +426,7 @@ BIAW Support Team`
   static async sendBookingRejectionEmail(email, name) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: email,
         subject: 'Class Booking Update',
         text: `Dear ${name},
@@ -435,7 +441,7 @@ Kind regards,
 BIAW Support Team`
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Booking rejection email sent to ${email}`);
       return info;
     } catch (error) {
@@ -448,7 +454,7 @@ BIAW Support Team`
   static async sendAdminBookingConfirmationEmail(email, name, classname, description, seatsPurchased, amount, location) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: email,
         subject: `Class Registration Confirmation for ${classname}`,
         text: `Dear ${name},
@@ -463,7 +469,7 @@ Best regards,
 BIAW support team.`
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Admin booking confirmation email sent to ${email}`);
       return info;
     } catch (error) {
@@ -476,7 +482,7 @@ BIAW support team.`
   static async sendROIIFreeBookingConfirmationEmail(email, name, classname, description, seatsPurchased, location) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: email,
         subject: `Class Registration Confirmation for ${classname}`,
         html: `
@@ -492,7 +498,7 @@ BIAW support team.`
         `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`ROII free booking confirmation email sent to ${email}: ${info.response}`);
       return info;
     } catch (error) {
@@ -505,7 +511,7 @@ BIAW support team.`
   static async sendEmail(emailData) {
     try {
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: emailData.to,
         subject: emailData.subject,
         html: emailData.html,
@@ -519,7 +525,7 @@ BIAW support team.`
         }));
       }
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Email sent to ${emailData.to}: ${info.response}`);
       return info;
     } catch (error) {
@@ -555,7 +561,7 @@ BIAW support team.`
       };
 
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: userEmail,
         subject: 'BIAW CESCL Certification - Your Certification Card',
         html: `
@@ -655,7 +661,7 @@ BIAW support team.`
         `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Certification email sent to ${userEmail}: ${info.response}`);
       return info;
     } catch (error) {
@@ -691,7 +697,7 @@ BIAW support team.`
       };
 
       const mailOptions = {
-        from: `"BIAW" <${process.env.EMAIL_USER}>`,
+        from: emailFrom(),
         to: userEmail,
         subject: 'BIAW CESCL Certification - Your Certification Card',
         html: `
@@ -799,7 +805,7 @@ BIAW support team.`
         }));
       }
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await mailTransport.sendMail(mailOptions);
       console.log(`Certification email with attachments sent to ${userEmail}: ${info.response}`);
       return info;
     } catch (error) {

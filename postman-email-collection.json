@@ -1,0 +1,60 @@
+{
+  "info": {
+    "name": "BIAW Class Module — Email (Graph)",
+    "description": "Test Microsoft Graph email for support@biaw.com. Set collection variables baseUrl and testEmail before sending.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "testEmail",
+      "value": "your@email.com"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Email config",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/email/config"
+      }
+    },
+    {
+      "name": "2. Verify OAuth (token)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/email/verify-smtp"
+      }
+    },
+    {
+      "name": "3. Send test email",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"to\": \"{{testEmail}}\"\n}"
+        },
+        "url": "{{baseUrl}}/email/test-send"
+      }
+    },
+    {
+      "name": "Health — server running",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/"
+      }
+    }
+  ]
+}

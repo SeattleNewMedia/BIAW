@@ -60,7 +60,7 @@ This system uses a popular software design called **MVC (Model-View-Controller)*
 - **Airtable:** Stores all your class, participant, and payment info.
 - **Stripe:** Handles payments and tax.
 - **Webflow:** Keeps your website in sync with your classes and registrations.
-- **Nodemailer:** Sends all emails (using Gmail).
+- **Microsoft Graph:** Sends all emails as support@biaw.com (OAuth2).
 - **Node.js & Express:** The engine that runs everything.
 
 ---

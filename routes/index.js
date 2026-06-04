@@ -13,11 +13,15 @@ const PaymentStatusController = require('../controllers/paymentStatusController'
 
 // Import route modules
 const adminRoutes = require('./adminRoutes');
+const emailTestRoutes = require('./emailTestRoutes');
 
 // Health check route
 router.get("/", (req, res) => {
   res.send("Server is running and ready to accept requests.");
 });
+
+// Email config / test routes (Microsoft Graph)
+router.use(emailTestRoutes);
 
 
 // Webhook routes
