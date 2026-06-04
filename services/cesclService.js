@@ -151,7 +151,7 @@ class CESCLService {
           // Update the Multiple Class Registration record with the CESCL record ID
           try {
             await base(TABLES.MULTIPLE_CLASS_REGISTRATION).update(cesclRecordData.multipleClassRegistrationId, {
-              "CESCL class registration table record ID ": cesclRecord.id
+              "CESCL class registration table record ID": cesclRecord.id
             });
             console.log(`Updated Multiple Class Registration record ${cesclRecordData.multipleClassRegistrationId} with CESCL record ID: ${cesclRecord.id}`);
           } catch (updateError) {
@@ -252,7 +252,7 @@ class CESCLService {
           // Update the Multiple Class Registration record with the CESCL record ID
           try {
             await base(TABLES.MULTIPLE_CLASS_REGISTRATION).update(participant.multipleClassRegistrationId, {
-              "CESCL class registration table record ID ": cesclRecord.id
+              "CESCL class registration table record ID": cesclRecord.id
             });
             console.log(`Updated Multiple Class Registration record ${participant.multipleClassRegistrationId} with CESCL record ID: ${cesclRecord.id}`);
           } catch (updateError) {
