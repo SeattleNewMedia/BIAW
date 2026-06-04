@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const memberRoutes = require('./routes/memberRoutes');
+const emailTestRoutes = require('./routes/emailTestRoutes');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -66,7 +67,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Use member routes
+app.use(emailTestRoutes);
 app.use(memberRoutes);
 
 module.exports = app; 
