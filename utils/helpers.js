@@ -51,29 +51,10 @@ function logError(context, error) {
   console.error(`[ERROR] ${context}:`, error.message || error);
 }
 
-// Determine tax code based on class type
-function getTaxCodeForClass(productType) {
-  const isOnlineClass = typeof productType === 'string' 
-    ? productType === "Online"
-    : productType?.name === "Online";
-  
-  return isOnlineClass ? "txcd_20060045" : "txcd_20060044";
-}
-
-// Check if class is online
-function isOnlineClass(productType) {
-  return typeof productType === 'string' 
-    ? productType === "Online"
-    : productType?.name === "Online";
-}
-
-
 module.exports = {
   formatCurrency,
   parsePrice,
   generateRandomCode,
   generateSlug,
   logError,
-  getTaxCodeForClass,
-  isOnlineClass
 }; 
