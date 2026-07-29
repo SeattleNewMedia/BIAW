@@ -2,6 +2,7 @@ const axios = require('axios');
 const { AIRTABLE_CONFIG, TABLES } = require('../config/database');
 const WEBFLOW_CONFIG = require('../config/webflow');
 const StripeService = require('../services/stripeService');
+const WebflowService = require('../services/webflowService');
 const { stripe } = require('../config/stripe');
 const { logError } = require('../utils/helpers');
 
@@ -133,11 +134,8 @@ class AirtableWebhookController {
       console.log("Received data:", { id, fields });
       let airtableUpdates = {};
 
-      // Fetch matching Webflow records using field-id
-      const webflowResponse = await axios.get(`${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`, { 
-        headers: WEBFLOW_CONFIG.headers 
-      });
-      const webflowRecords = webflowResponse.data.items || [];
+      // Fetch matching Webflow records using field-id (paginate — collection can exceed 100 items)
+      const webflowRecords = await WebflowService.fetchAllClassItems();
       const fieldId = fields["Field ID"];
       const fieldIdString = String(fieldId);
       const matchingWebflowRecords = webflowRecords.filter(

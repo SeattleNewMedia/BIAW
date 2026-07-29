@@ -4,6 +4,39 @@ const { generateSlug } = require('../utils/helpers');
 const { logError } = require('../utils/helpers');
 
 class WebflowService {
+  // Fetch ALL class CMS items (Webflow returns max 100 per request)
+  static async fetchAllClassItems() {
+    const allItems = [];
+    let offset = 0;
+    const limit = 100;
+    let hasMore = true;
+    let pageCount = 0;
+    const maxPages = 200;
+
+    while (hasMore && pageCount < maxPages) {
+      const response = await axios.get(
+        `${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`,
+        {
+          headers: WEBFLOW_CONFIG.headers,
+          params: { offset, limit },
+        }
+      );
+
+      const items = response.data.items || [];
+      allItems.push(...items);
+      pageCount++;
+      hasMore = items.length === limit;
+      offset += limit;
+
+      if (items.length === 0) {
+        hasMore = false;
+      }
+    }
+
+    console.log(`Fetched ${allItems.length} Webflow class items (${pageCount} pages)`);
+    return allItems;
+  }
+
   // Helper to publish items to live
   static async publishWebflowItems(itemIds) {
     try {
