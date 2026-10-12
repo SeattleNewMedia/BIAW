@@ -670,6 +670,51 @@ class ClassController {
         classlocation
       );
 
+      const instructorFree = biawClassRecord.fields['Instructor Name (from Instructors)'];
+      const instructorDisplayFree = Array.isArray(instructorFree)
+        ? instructorFree.filter(Boolean).join(', ')
+        : instructorFree || '—';
+      const productTypeFree = biawClassRecord.fields['Product Type'];
+      const modeFree = productTypeFree && typeof productTypeFree === 'object'
+        ? productTypeFree.name
+        : productTypeFree || '';
+      const nameParts = String(signName).trim().split(/\s+/);
+      let userTypeFree = '';
+      if (validMemberId) {
+        try {
+          const memberRow = await base(TABLES.MEMBERS).find(validMemberId);
+          const rawUser = memberRow.fields['User'];
+          userTypeFree = rawUser && typeof rawUser === 'object' && 'name' in rawUser
+            ? rawUser.name
+            : rawUser || '';
+        } catch (memberLookupErr) {
+          logError('Free class admin alert: member User field', memberLookupErr);
+        }
+      }
+
+      try {
+        await EmailService.sendNewClassRegistrationAdminAlert({
+          className: biawClassRecord.fields['Name'],
+          classDate: biawClassRecord.fields['Date'] || '',
+          startTime: biawClassRecord.fields['Start time'] || '',
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          userType: userTypeFree,
+          instructorName: instructorDisplayFree,
+          mode: modeFree,
+          locationText: classlocation,
+          paymentStatus: 'Free',
+          registrationDate: new Date().toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+          }),
+          seatCount,
+        });
+      } catch (adminEmailErr) {
+        logError('Admin free class registration alert (non-fatal)', adminEmailErr);
+      }
+
       res.status(200).send({
         message: 'Class registered successfully',
         records: createdRecords,
