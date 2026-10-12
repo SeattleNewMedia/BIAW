@@ -6,7 +6,7 @@ const EmailService = require('../services/emailService');
 const WebflowService = require('../services/webflowService');
 const PurchaseRecordSyncService = require('../services/purchaseRecordSyncService');
 const { base, base2, base3, TABLES } = require('../config/database');
-const { logError } = require('../utils/helpers');
+const { isFreeClass, logError } = require('../utils/helpers');
 
 class ClassController {
   // Submit class registration (paid)
@@ -528,6 +528,159 @@ class ClassController {
     } catch (error) {
       console.error("Error adding records to Airtable:", error);
       res.status(500).send({ message: "Error registering class", error: error });
+    }
+  }
+
+  // Register a class that is free for everyone (member price and non-member price are both 0)
+  static async registerFreeClass(req, res) {
+    const {
+      SignedMemberName,
+      signedmemberemail,
+      timestampField,
+      memberid,
+      ...fields
+    } = req.body;
+
+    const registeredAt = timestampField || Math.floor(Date.now() / 1000).toString();
+
+    try {
+      const airID = fields['airtable-id'];
+      const signName = SignedMemberName || fields['signed-member-name'];
+      const signEmail = signedmemberemail || fields['signed-member-email'];
+
+      if (!airID) {
+        return res.status(400).send({ message: 'Class ID is required.' });
+      }
+      if (!signName || !signEmail) {
+        return res.status(400).send({ message: 'Name and email are required.' });
+      }
+
+      const biawClassRecord = await Class.getClassByFieldId(airID);
+      if (!biawClassRecord) {
+        return res.status(500).send({ message: 'No matching class found for the provided Airtable ID.' });
+      }
+      if (!isFreeClass(biawClassRecord.fields)) {
+        return res.status(400).send({ message: 'This class is not free.' });
+      }
+
+      const providedMemberId = fields['field-2'] || memberid;
+      let validMemberId = null;
+      if (providedMemberId) {
+        validMemberId = await Member.validateMemberId(providedMemberId);
+      }
+
+      const seatRecords = [];
+      for (let i = 1; i <= 10; i++) {
+        const name = fields[`P${i}-Name`];
+        const email = fields[`P${i}-Email`];
+        const phone = fields[`P${i}-Phone-number`] || fields[`P${i}-Phone-Number`];
+        if (!name && !email && !phone) continue;
+
+        const address = i === 1 ? (fields['Address'] || '') : (fields[`A${i}-Address`] || '');
+        seatRecords.push({
+          Name: name || "",
+          Email: email || "",
+          "Phone Number": phone || "",
+          "Time Stamp": registeredAt,
+          "Purchased class Airtable ID": airID,
+          "Payment Status": "Free",
+          "Biaw Classes": [biawClassRecord.id],
+          "Address": address,
+          "Company Name": fields[`Company-Name-${i}`] || "",
+          "Old CESCL certificate number": fields[`certify-number-${i}`] || "",
+        });
+      }
+
+      const seatCount = seatRecords.length;
+      if (seatCount === 0) {
+        return res.status(400).send({ message: 'At least one participant is required.' });
+      }
+
+      const currentSeatsRemaining = parseInt(biawClassRecord.fields["Number of seats remaining"], 10);
+      const totalPurchasedSeats = parseInt(biawClassRecord.fields["Total Number of Purchased Seats"] || "0", 10);
+      if (Number.isNaN(currentSeatsRemaining) || currentSeatsRemaining < seatCount) {
+        return res.status(400).send({ message: 'Not enough seats available for this class.' });
+      }
+
+      const seatRecordIds = [];
+      const createdRecords = [];
+      for (const record of seatRecords) {
+        const createdRecord = await base(TABLES.MULTIPLE_CLASS_REGISTRATION).create(record);
+        createdRecords.push(createdRecord);
+        seatRecordIds.push(createdRecord.id);
+      }
+
+      const updatedSeatsRemaining = currentSeatsRemaining - seatCount;
+      const updatedTotalPurchasedSeats = totalPurchasedSeats + seatCount;
+      await Class.updateClassSeats(biawClassRecord.id, updatedSeatsRemaining, updatedTotalPurchasedSeats);
+
+      try {
+        await WebflowService.updateRemainingSeatsForClass(airID, updatedSeatsRemaining);
+      } catch (webflowError) {
+        console.error('Error syncing remaining seats to Webflow:', webflowError.message);
+      }
+
+      const isSelfPurchase = fields.checkbox === "on" ? "true" : "false";
+      const classUrl = fields['class-url-free'] || "";
+      const classlocation = biawClassRecord.fields["Local Association Name (from Class Location)"]?.[0] || "No details provided";
+
+      const paymentRecord = {
+        "Name": signName,
+        "Email": signEmail,
+        "Airtable id": airID,
+        "Client name": signName,
+        "Payment Status": "Free",
+        "Biaw Classes": [biawClassRecord.id],
+        "Time Stamp": registeredAt,
+        "Multiple Class Registration": seatRecordIds,
+        "Number of seat Purchased": String(seatCount),
+        "Booking Type": "User booked",
+        "ROII member": "No",
+        "Purchased Class url": classUrl,
+        "Self Purchase": isSelfPurchase,
+        "Initial Payment status (RoII, Paid, Pending)": "Free",
+      };
+      if (validMemberId) {
+        paymentRecord["Member"] = [validMemberId];
+      }
+
+      const paymentCreatedRecord = await Payment.createPaymentRecord(paymentRecord);
+      const updatedRecord = await Payment.getPaymentRecordById(paymentCreatedRecord.id);
+
+      try {
+        const webflowItemId = await PurchaseRecordSyncService.pushPurchaseRecordToWebflow(
+          updatedRecord || paymentCreatedRecord,
+          biawClassRecord.fields
+        );
+        if (webflowItemId) {
+          await Payment.updatePaymentRecord(paymentCreatedRecord.id, {
+            "Webflow payment record ID": webflowItemId
+          });
+        }
+      } catch (webflowError) {
+        console.error('Error syncing free registration to Webflow:', webflowError.message);
+      }
+
+      await EmailService.sendFreeClassConfirmation(
+        signEmail,
+        signName,
+        biawClassRecord.fields['Name'],
+        seatCount,
+        classUrl,
+        classlocation
+      );
+
+      res.status(200).send({
+        message: 'Class registered successfully',
+        records: createdRecords,
+        paymentRecord: paymentCreatedRecord,
+      });
+    } catch (error) {
+      console.error('Error registering free class:', error);
+      res.status(500).send({
+        message: 'Error registering class',
+        error: error.message,
+      });
     }
   }
 }

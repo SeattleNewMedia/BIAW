@@ -86,7 +86,7 @@ class PaymentController {
       }
 
       const currentPaymentStatus = recordData["Payment Status"];
-      const seatCount = recordData["Number of seat Purchased"] || 0;
+      const seatCount = parseInt(recordData["Number of seat Purchased"], 10) || 0;
       const classID = recordData["Biaw Classes"][0];
       const multipleClassRegistrationIds = recordData["Multiple Class Registration"] || [];
       const userEmail = recordData["Email"];
@@ -96,27 +96,24 @@ class PaymentController {
 
       // Determine new payment status
       let newPaymentStatus = "Refunded";
-      if (currentPaymentStatus === "ROII-Free" || currentPaymentStatus === "ROII-Cancelled") {
+      if (currentPaymentStatus === "Free" || currentPaymentStatus === "Cancelled Without Refund") {
+        newPaymentStatus = "Cancelled Without Refund";
+      } else if (currentPaymentStatus === "ROII-Free" || currentPaymentStatus === "ROII-Cancelled") {
         newPaymentStatus = "ROII-Cancelled";
       }
 
-      // Prepare update payload
-      const fieldsToUpdate = {
-        "Payment Status": newPaymentStatus,
-        "Refund Confirmation ": "Confirmed ",
-        "Payment Refund & Cancellation Status":"Refunded"
-
+      // Free cancellations return the seats and do not record a refund.
+      const statusFields = {
+        "Number of seat Purchased": newPaymentStatus === "Cancelled Without Refund" || newPaymentStatus === "ROII-Cancelled" || newPaymentStatus === "Refunded"
+          ? "0"
+          : String(seatCount),
       };
-
-      if (newPaymentStatus === "ROII-Cancelled" || newPaymentStatus === "Refunded") {
-        fieldsToUpdate["Number of seat Purchased"] = "0";
+      if (newPaymentStatus !== "Cancelled Without Refund") {
+        statusFields["Refund Confirmation "] = "Confirmed ";
       }
 
       // Update payment status
-      await Payment.updatePaymentStatus(recordId, newPaymentStatus, {
-        "Refund Confirmation ": "Confirmed ",
-        "Number of seat Purchased": newPaymentStatus === "ROII-Cancelled" || newPaymentStatus === "Refunded" ? "0" : String(seatCount)
-      });
+      await Payment.updatePaymentStatus(recordId, newPaymentStatus, statusFields);
 
       // Update Registration Records and Guest Details in base2 and base3 ONLY for ROII cancellations
       if (newPaymentStatus === "ROII-Cancelled") {
@@ -274,15 +271,24 @@ class PaymentController {
         refundAmount = refund.refundAmount;
       }
 
-      // Send cancellation email
-      await EmailService.sendCancellationConfirmation(
-        userEmail,
-        userName,
-        className,
-        classurled,
-        cancellationDate,
-        refundAmount
-      );
+      // Send cancellation email. Free registrations are not refunded.
+      if (newPaymentStatus === "Cancelled Without Refund") {
+        await EmailService.sendCancellationWithoutRefundEmail(
+          userEmail,
+          userName,
+          className,
+          seatCount
+        );
+      } else {
+        await EmailService.sendCancellationConfirmation(
+          userEmail,
+          userName,
+          className,
+          classurled,
+          cancellationDate,
+          refundAmount
+        );
+      }
 
       // Check and notify waitlist after payment cancellation/refund
       try {

@@ -35,6 +35,7 @@ router.use('/api', adminRoutes);
 // Class registration routes
 router.post('/submit-class', ClassController.submitClass);
 router.post('/register-class', ClassController.registerClass);
+router.post('/register-free-class', ClassController.registerFreeClass);
 
 // Waitlist routes
 router.post('/waitlist', WaitlistController.addToWaitlist);

@@ -1,7 +1,6 @@
 const axios = require('axios');
 const WEBFLOW_CONFIG = require('../config/webflow');
-const { generateSlug } = require('../utils/helpers');
-const { logError } = require('../utils/helpers');
+const { generateSlug, isFreeClass, logError } = require('../utils/helpers');
 
 class WebflowService {
   // Fetch ALL class CMS items (Webflow returns max 100 per request)
@@ -138,33 +137,34 @@ class WebflowService {
         if (dropdownValue === "Member") {
           memberValue = "Yes";
           nonMemberValue = "No";
-          paymentLink = stripeInfo.memberPaymentLink.url;
+          paymentLink = stripeInfo?.memberPaymentLink?.url || "";
           relatedClassIds = validatedRelatedClassIdsForMember;
         } else if (dropdownValue === "Non-Member") {
           memberValue = "No";
           nonMemberValue = "Yes";
-          paymentLink = stripeInfo.nonMemberPaymentLink.url;
+          paymentLink = stripeInfo?.nonMemberPaymentLink?.url || "";
           relatedClassIds = validatedRelatedClassIdsForNonMember;
         }
 
+        const freeClass = isFreeClass(classDetails);
+        const memberPriceId = stripeInfo?.memberPrice?.id || "";
+        const nonMemberPriceId = stripeInfo?.nonMemberPrice?.id || "";
+        const activePriceId = dropdownValue === "Member" ? memberPriceId : nonMemberPriceId;
+
         // Create in staging (not live), including both URLs
-        const response = await axios.post(
-          `${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`,
-          {
-            fieldData: {
+        const fieldData = {
               name: classDetails.Name,
               slug: slug,
               description: classDetails.Description || "No description available",
-              "price-member": String(classDetails["Price - Member"]),
-              "price-non-member": String(classDetails["Price - Non Member"]),
-              "member-price-id": dropdownValue === "Member" ? String(stripeInfo.memberPrice.id) : "",
-              "non-member-price-id": dropdownValue === "Non-Member" ? String(stripeInfo.nonMemberPrice.id) : "",
-              "price-id": dropdownValue === "Member"? String(stripeInfo.memberPrice.id): dropdownValue === "Non-Member" ? String(stripeInfo.nonMemberPrice.id) : "",
+              "price-member": freeClass ? "Free" : String(classDetails["Price - Member"]),
+              "price-non-member": freeClass ? "Free" : String(classDetails["Price - Non Member"]),
+              "member-price-id": dropdownValue === "Member" ? memberPriceId : "",
+              "non-member-price-id": dropdownValue === "Non-Member" ? nonMemberPriceId : "",
+              "price-id": activePriceId,
               "field-id": String(classDetails["Field ID"]),
               date: classDetails.Date,
               "end-date": classDetails["End date "],
               location: location2,
-              "payment-link": paymentLink,
               "start-time": classDetails["Start time"],
               "end-time": classDetails["End Time "],
               "class-type": typeof classDetails["Product Type"] === 'object' ? classDetails["Product Type"].name : classDetails["Product Type"],
@@ -189,7 +189,16 @@ class WebflowService {
               "non-member-class-page-url": nonMemberUrl,
               "show-address-field": showAddressField,
               "recertification-class": recertification
-            },
+        };
+
+        if (paymentLink) {
+          fieldData["payment-link"] = paymentLink;
+        }
+
+        const response = await axios.post(
+          `${WEBFLOW_CONFIG.baseURL}/${WEBFLOW_CONFIG.collections.CLASSES}/items`,
+          {
+            fieldData,
           },
           {
             headers: WEBFLOW_CONFIG.headers,

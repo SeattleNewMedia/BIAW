@@ -330,6 +330,36 @@ BIAW Support Team`,
     }
   }
 
+  // Send free-for-everyone class confirmation
+  static async sendFreeClassConfirmation(userEmail, userName, className, seatCount, classUrl, location) {
+    try {
+      const mailOptions = {
+        from: emailFrom(),
+        to: userEmail,
+        subject: `Class Registration Confirmation for ${className}`,
+        html: `
+          <p>Hi ${userName},</p>
+          <p>We’re pleased to confirm your registration for the class <strong>${className}</strong>. This class is free. Here are the details:</p>
+          <ul>
+            <li>Number of Seats: ${seatCount}</li>
+            <li>Location: ${location}</li>
+            ${classUrl ? `<li>Class page: <a href="${classUrl}">${classUrl}</a></li>` : ""}
+          </ul>
+          <p>We look forward to seeing you in class!</p>
+          <p>We appreciate your continued support. If you have any questions, feel free to contact us at (360) 352-7800 if you need further assistance. Thank you!</p>
+          <p>Best regards,<br>BIAW Support Team</p>
+        `,
+      };
+
+      const info = await mailTransport.sendMail(mailOptions);
+      console.log(`Free class confirmation email sent to ${userEmail}: ${info.response}`);
+      return info;
+    } catch (error) {
+      logError('Sending free class confirmation', error);
+      throw error;
+    }
+  }
+
   // Send refund confirmation email
   static async sendRefundConfirmationEmail(email, username, classname, seatsPurchased) {
     try {

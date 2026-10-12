@@ -10,17 +10,24 @@ class Class {
       }
 
       const numberOfSeats = String(classDetails["Number of seats "] ?? "0");
-
-      await base(TABLES.BIAW_CLASSES).update(recordId, {
+      const fieldsToUpdate = {
         "Item Id": itemIds?.[0] ?? "Unknown Member Price ID",
         "Item Id 2": itemIds?.[1] ?? "Unknown Member Price ID",
-        "Member Price ID": String(stripeInfo?.memberPrice?.id ?? "Unknown Member Price ID"),
-        "Non-Member Price ID": String(stripeInfo?.nonMemberPrice?.id ?? "Unknown Non-Member Price ID"),
         "Coupon Code": generatedCode2 || null,
         "Publish / Unpublish": "Publish",
         "Number of seats remaining": numberOfSeats,
         "slug" : nonMemberUrl || null,
-      });
+      };
+
+      // Free classes have no Stripe price. Leave the price ID fields blank.
+      if (stripeInfo?.memberPrice?.id) {
+        fieldsToUpdate["Member Price ID"] = String(stripeInfo.memberPrice.id);
+      }
+      if (stripeInfo?.nonMemberPrice?.id) {
+        fieldsToUpdate["Non-Member Price ID"] = String(stripeInfo.nonMemberPrice.id);
+      }
+
+      await base(TABLES.BIAW_CLASSES).update(recordId, fieldsToUpdate);
 
       console.log("Airtable record updated successfully!");
     } catch (error) {

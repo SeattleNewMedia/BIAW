@@ -85,11 +85,18 @@ class SchedulerService {
         throw new Error('Missing required fields: Name or Field ID');
       }
 
-      // Check if class already exists and has been processed (has payment links)
+      // Skip a class that was already published. Paid classes have Stripe price IDs.
+      // Free classes have Webflow item IDs and no Stripe prices.
       const existingClass = await Class.getClassByFieldId(webhookData['Field ID']);
-      if (existingClass && existingClass.fields['Member Price ID'] && existingClass.fields['Non-Member Price ID']) {
-        console.log(`Class with Field ID ${webhookData['Field ID']} already has payment links, skipping processing`);
-        return { success: false, message: 'Class already processed with payment links' };
+      const existingFields = existingClass?.fields || {};
+      const alreadyPriced = existingFields['Member Price ID'] && existingFields['Non-Member Price ID'];
+      const alreadyPublished = existingFields['Item Id'] && existingFields['Item Id 2'];
+      if (existingClass && (alreadyPriced || alreadyPublished)) {
+        const message = alreadyPriced
+          ? 'Class already processed with payment links'
+          : 'Class already published to Webflow';
+        console.log(`Class with Field ID ${webhookData['Field ID']} skipped: ${message}`);
+        return { success: false, message };
       }
 
       // Process the class

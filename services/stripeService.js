@@ -1,12 +1,28 @@
 const { stripe } = require('../config/stripe');
-const { parsePrice, generateRandomCode, logError } = require('../utils/helpers');
+const { parsePrice, hasPriceValue, isFreeClass, generateRandomCode, logError } = require('../utils/helpers');
 
 class StripeService {
   // Create Stripe products and coupon
   static async createStripeProductsAndCoupon(classDetails) {
     try {
-      if (!classDetails.Name || !classDetails["Price - Member"] || !classDetails["Price - Non Member"]) {
+      if (!classDetails.Name || !hasPriceValue(classDetails["Price - Member"]) || !hasPriceValue(classDetails["Price - Non Member"])) {
         throw new Error("Class details are incomplete");
+      }
+
+      // Both prices are 0: publish the class without creating Stripe products.
+      if (isFreeClass(classDetails)) {
+        console.log(`Class "${classDetails.Name}" is free. Skipping Stripe product creation.`);
+        return {
+          memberProduct: null,
+          memberPrice: null,
+          memberPaymentLink: null,
+          nonMemberProduct: null,
+          nonMemberPrice: null,
+          nonMemberPaymentLink: null,
+          discountCoupon: null,
+          promotionCode: null,
+          generatedCode2: null,
+        };
       }
 
       const memberPriceAmount = parsePrice(classDetails["Price - Member"]);

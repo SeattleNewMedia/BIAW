@@ -4,7 +4,7 @@ const WEBFLOW_CONFIG = require('../config/webflow');
 const StripeService = require('../services/stripeService');
 const WebflowService = require('../services/webflowService');
 const { stripe } = require('../config/stripe');
-const { logError } = require('../utils/helpers');
+const { isFreeClass, logError } = require('../utils/helpers');
 
 class AirtableWebhookController {
   // Handle class deletion webhook
@@ -278,16 +278,25 @@ class AirtableWebhookController {
         const webflowMemberPrice = String(webflowRecord.fieldData["price-member"]);
         const airtableNonMemberPrice = String(fields["Price - Non Member"]);
         const webflowNonMemberPrice = String(webflowRecord.fieldData["price-non-member"]);
+        const freeClass = isFreeClass(fields);
+        const memberPriceLabel = freeClass ? "Free" : airtableMemberPrice;
+        const nonMemberPriceLabel = freeClass ? "Free" : airtableNonMemberPrice;
         const discountPercent = parseInt(fields["% Discounts"] || "0", 10);
         let memberPriceId = webflowRecord.fieldData["member-price-id"];
         let nonMemberPriceId = webflowRecord.fieldData["non-member-price-id"];
         let pricesChanged = false;
 
-        if (airtableMemberPrice !== webflowMemberPrice || airtableNonMemberPrice !== webflowNonMemberPrice) {
+        if (memberPriceLabel !== webflowMemberPrice || nonMemberPriceLabel !== webflowNonMemberPrice) {
           pricesChanged = true;
         }
 
-        if (pricesChanged) {
+        if (pricesChanged && freeClass) {
+          memberPriceId = "";
+          nonMemberPriceId = "";
+          if (webflowRecord.fieldData["payment-link"]) {
+            updates["payment-link"] = "";
+          }
+        } else if (pricesChanged) {
           try {
             // Always create both products/prices
             const memberProduct = await stripe.products.create({
@@ -335,14 +344,14 @@ class AirtableWebhookController {
         if (webflowRecord.fieldData["member"] === "Yes") {
           updates["member-price-id"] = memberPriceId;
           updates["price-id"] = memberPriceId;
-          updates["price-member"] = airtableMemberPrice;
-          updates["price-non-member"] = airtableNonMemberPrice;
+          updates["price-member"] = memberPriceLabel;
+          updates["price-non-member"] = nonMemberPriceLabel;
         }
         if (webflowRecord.fieldData["member"] === "No") {
           updates["non-member-price-id"] = nonMemberPriceId;
           updates["price-id"] = nonMemberPriceId;
-          updates["price-member"] = airtableMemberPrice;
-          updates["price-non-member"] = airtableNonMemberPrice;
+          updates["price-member"] = memberPriceLabel;
+          updates["price-non-member"] = nonMemberPriceLabel;
         }
 
         // If there are updates, send them to Webflow staging first, then publish to live

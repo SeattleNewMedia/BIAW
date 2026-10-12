@@ -25,6 +25,23 @@ const parsePrice = (price) => {
   }
 };
 
+// Blank prices are missing. Zero is a real price.
+function hasPriceValue(price) {
+  if (price === null || price === undefined) return false;
+  if (typeof price === "number") return !Number.isNaN(price);
+  if (typeof price === "string") return price.trim() !== "";
+  return false;
+}
+
+// Free for everyone: both member and non-member prices are 0.
+function isFreeClass(classDetails) {
+  if (!classDetails) return false;
+  const memberPrice = classDetails["Price - Member"];
+  const nonMemberPrice = classDetails["Price - Non Member"];
+  if (!hasPriceValue(memberPrice) || !hasPriceValue(nonMemberPrice)) return false;
+  return parsePrice(memberPrice) === 0 && parsePrice(nonMemberPrice) === 0;
+}
+
 // Generate random code for promotion codes
 function generateRandomCode(length) {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -54,6 +71,8 @@ function logError(context, error) {
 module.exports = {
   formatCurrency,
   parsePrice,
+  hasPriceValue,
+  isFreeClass,
   generateRandomCode,
   generateSlug,
   logError,
